@@ -3,8 +3,8 @@
 USE `ecommerce_db`;
 
 -- Insert sample user (matches UserProfilePage mock data)
-INSERT INTO `users` (`id`, `first_name`, `last_name`, `email`, `password_hash`, `phone`) VALUES
-(1, 'Eleanor', 'Vance', 'eleanor@example.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '+1-555-0123');
+INSERT INTO `users` (`id`, `first_name`, `last_name`, `email`, `password_hash`, `phone`, `role`) VALUES
+(1, 'Eleanor', 'Vance', 'eleanor@example.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '+1-555-0123', 'user');
 
 -- Insert sample user addresses (matches UserProfilePage)
 INSERT INTO `user_addresses` (`user_id`, `address_type`, `first_name`, `last_name`, `street_address`, `apartment`, `city`, `state_province`, `postal_code`, `country`, `is_default`) VALUES
