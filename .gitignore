@@ -1,0 +1,18 @@
+node_modules/
+
+stitch/
+ui/
+docs/
+
+database/*
+# DO NOT ignore these two files
+!database/schema.sql
+!database/sample_data.sql
+
+# Backend PHP
+backend/.env
+backend/DEBUG_GUIDE.md
+backend/POSTMAN_GUIDE.md
+
+
+
