@@ -125,8 +125,57 @@ const ProductsPage: React.FC = () => {
       };
       fetchFilteredProducts();
     } else {
-      // Normal load - all products
-      generateMockProducts();
+      // Normal load - all products from database
+      const fetchAllProducts = async () => {
+        try {
+          setLoading(true);
+          const response = await fetch('http://localhost:8000/products', {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (response.ok) {
+            const productsData = await response.json();
+            const processedProducts = productsData.data.products.map((product: any) => {
+              let images = [];
+              if (product.images) {
+                try {
+                  images = typeof product.images === 'string' ? JSON.parse(product.images) : product.images;
+                } catch (e) {
+                  console.warn('Failed to parse product images:', product.images);
+                }
+              }
+
+              return {
+                id: product.id,
+                category: product.category_name,
+                category_slug: product.category_slug,
+                brand: product.brand,
+                image: images?.[0] || 'https://images.unsplash.com/photo-1571910258025-e3a1b0d6a30c?w=400&h=300&fit=crop',
+                title: product.name,
+                description: product.description || `Premium ${product.name} for your style`,
+                price: parseFloat(product.price),
+                quantity: parseInt(product.quantity) || 0,
+                rating: parseFloat(product.rating) || 0,
+              };
+            });
+            setProducts(processedProducts);
+          } else {
+            // Fallback to mock products if API fails
+            console.warn('Database products fetch failed, using mock data');
+            generateMockProducts();
+          }
+        } catch (err) {
+          console.error('Error fetching products from database:', err);
+          // Fallback to mock products if API fails
+          generateMockProducts();
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchAllProducts();
     }
   }, []);
 
@@ -408,7 +457,55 @@ const ProductsPage: React.FC = () => {
               setSelectedBrand('all');
               setSortBy('newest');
               setSearchQuery('');
-              generateMockProducts();
+              // Re-fetch all products from database
+              const fetchAllProducts = async () => {
+                try {
+                  setLoading(true);
+                  const response = await fetch('http://localhost:8000/products', {
+                    method: 'GET',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                  });
+
+                  if (response.ok) {
+                    const productsData = await response.json();
+                    const processedProducts = productsData.data.products.map((product: any) => {
+                      let images = [];
+                      if (product.images) {
+                        try {
+                          images = typeof product.images === 'string' ? JSON.parse(product.images) : product.images;
+                        } catch (e) {
+                          console.warn('Failed to parse product images:', product.images);
+                        }
+                      }
+
+                      return {
+                        id: product.id,
+                        category: product.category_name,
+                        category_slug: product.category_slug,
+                        brand: product.brand,
+                        image: images?.[0] || 'https://images.unsplash.com/photo-1571910258025-e3a1b0d6a30c?w=400&h=300&fit=crop',
+                        title: product.name,
+                        description: product.description || `Premium ${product.name} for your style`,
+                        price: parseFloat(product.price),
+                        quantity: parseInt(product.quantity) || 0,
+                        rating: parseFloat(product.rating) || 0,
+                      };
+                    });
+                    setProducts(processedProducts);
+                  } else {
+                    console.warn('Database products fetch failed, using mock data');
+                    generateMockProducts();
+                  }
+                } catch (err) {
+                  console.error('Error fetching products from database:', err);
+                  generateMockProducts();
+                } finally {
+                  setLoading(false);
+                }
+              };
+              fetchAllProducts();
             }}
             className="px-3 py-2 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors"
           >
