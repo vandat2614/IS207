@@ -193,6 +193,22 @@ function handlePost($parts)
             OrderController::createOrder();
             break;
 
+        case 'admin':
+            if (isset($parts[1])) {
+                // Require admin role for all admin endpoints
+                JWTHandler::requireAdmin();
+                switch ($parts[1]) {
+                    case 'products':
+                        ProductController::createProduct();
+                        break;
+                    default:
+                        JWTHandler::sendError('Endpoint not found', 404);
+                }
+            } else {
+                JWTHandler::sendError('Endpoint not found', 404);
+            }
+            break;
+
         case 'products':
             ProductController::createProduct();
             break;
@@ -273,9 +289,13 @@ function handlePut($parts)
             break;
 
         case 'admin':
-            if (isset($parts[1]) && isset($parts[2])) {
+            if (isset($parts[1])) {
+                // Require admin role for all admin endpoints
                 JWTHandler::requireAdmin();
                 switch ($parts[1]) {
+                    case 'products':
+                        ProductController::createProduct();
+                        break;
                     case 'users':
                         if ($parts[2] === 'role' && isset($parts[3])) {
                             UserController::updateUserRole($parts[3]);

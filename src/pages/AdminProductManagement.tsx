@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import AddProductModal from '../components/AddProductModal';
 
 interface Product {
   id: number;
@@ -18,6 +19,8 @@ const AdminProductManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addLoading, setAddLoading] = useState(false);
 
   useEffect(() => {
     fetchProducts();
@@ -116,8 +119,39 @@ const AdminProductManagement: React.FC = () => {
   };
 
   const handleAddProduct = () => {
-    console.log('Add new product');
-    // TODO: Implement add product modal
+    setShowAddModal(true);
+  };
+
+  const handleAddProductSubmit = async (productData: any) => {
+    try {
+      setAddLoading(true);
+      const token = localStorage.getItem('authToken');
+
+      const response = await fetch('http://localhost:8000/admin/products', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(productData)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setError('');
+        setShowAddModal(false);
+        // Refresh product list
+        await fetchProducts();
+      } else {
+        const errorData = await response.json();
+        setError(errorData.message || 'Failed to add product');
+      }
+    } catch (err) {
+      setError('Failed to connect to server');
+      console.error('Error adding product:', err);
+    } finally {
+      setAddLoading(false);
+    }
   };
 
   return (
@@ -315,6 +349,14 @@ const AdminProductManagement: React.FC = () => {
             </nav>
           )}
         </div>
+
+        {/* Add Product Modal */}
+        <AddProductModal
+          isOpen={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          onSubmit={handleAddProductSubmit}
+          loading={addLoading}
+        />
       </div>
     </AdminLayout>
   );
