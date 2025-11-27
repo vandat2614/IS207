@@ -22,6 +22,7 @@ const AdminProductManagement: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [addLoading, setAddLoading] = useState(false);
@@ -108,7 +109,7 @@ const AdminProductManagement: React.FC = () => {
     try {
       const token = localStorage.getItem('authToken');
 
-      const response = await fetch(`http://localhost:8000/admin/products/${productId}`, {
+      const response = await fetch(`http://localhost:8000/products/${productId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -117,6 +118,7 @@ const AdminProductManagement: React.FC = () => {
         // Remove from local state
         setProducts(prevProducts => prevProducts.filter(p => p.id !== productId));
         setError('');
+        alert('Product deleted successfully');
       } else {
         const errorData = await response.json();
         setError(errorData.message || 'Failed to delete product');
@@ -135,6 +137,7 @@ const AdminProductManagement: React.FC = () => {
   };
 
   const handleAddProductSubmit = async (productData: any) => {
+    console.log('Submitting product data:', productData); // Debug log
     try {
       setAddLoading(true);
       const token = localStorage.getItem('authToken');
@@ -143,24 +146,28 @@ const AdminProductManagement: React.FC = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+          'Authorization': `Bearer ${token}` },
         body: JSON.stringify(productData)
       });
 
+      console.log('Response status:', response.status); // Debug log
+
       if (response.ok) {
         const data = await response.json();
+        console.log('Success response:', data); // Debug log
         setError('');
+        alert('Product added successfully');
         setShowAddModal(false);
         // Refresh product list
         await fetchProducts();
       } else {
         const errorData = await response.json();
+        console.log('Error response:', errorData); // Debug log
         setError(errorData.message || 'Failed to add product');
       }
     } catch (err) {
+      console.error('Network error:', err); // Debug log
       setError('Failed to connect to server');
-      console.error('Error adding product:', err);
     } finally {
       setAddLoading(false);
     }
@@ -177,14 +184,14 @@ const AdminProductManagement: React.FC = () => {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+          'Authorization': `Bearer ${token}` },
         body: JSON.stringify(productData)
       });
 
       if (response.ok) {
         const data = await response.json();
         setError('');
+        alert('Product updated successfully');
         setShowAddModal(false);
         setEditingProduct(null);
         // Refresh product list
@@ -218,6 +225,19 @@ const AdminProductManagement: React.FC = () => {
           </button>
         </div>
 
+        {/* Success Message */}
+        {success && (
+          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative">
+            <span className="block sm:inline">{success}</span>
+            <button
+              className="absolute top-0 bottom-0 right-0 px-4 py-3"
+              onClick={() => setSuccess('')}
+            >
+              <span className="text-green-500">×</span>
+            </button>
+          </div>
+        )}
+
         {/* Error Message */}
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
@@ -225,7 +245,6 @@ const AdminProductManagement: React.FC = () => {
             <button
               className="absolute top-0 bottom-0 right-0 px-4 py-3"
               onClick={() => setError('')}
-
             >
               <span className="text-red-500">×</span>
             </button>
