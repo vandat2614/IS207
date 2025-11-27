@@ -11,6 +11,10 @@ interface Product {
   image?: string | null;
   quantity: number;
   created_at: string;
+  sku?: string;
+  category_id?: number;
+  status?: string;
+  is_active?: boolean;
 }
 
 const AdminProductManagement: React.FC = () => {
@@ -21,6 +25,8 @@ const AdminProductManagement: React.FC = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [addLoading, setAddLoading] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editLoading, setEditLoading] = useState(false);
 
   useEffect(() => {
     fetchProducts();
@@ -89,8 +95,13 @@ const AdminProductManagement: React.FC = () => {
   };
 
   const handleEdit = (productId: number) => {
-    console.log('Edit product:', productId);
-    // TODO: Implement edit modal
+    const product = products.find(p => p.id === productId);
+    if (product) {
+      setEditingProduct(product);
+      setShowAddModal(true);
+    } else {
+      setError('Product not found');
+    }
   };
 
   const handleDelete = async (productId: number) => {
@@ -119,6 +130,7 @@ const AdminProductManagement: React.FC = () => {
   };
 
   const handleAddProduct = () => {
+    setEditingProduct(null); // Clear any editing state
     setShowAddModal(true);
   };
 
@@ -154,6 +166,41 @@ const AdminProductManagement: React.FC = () => {
     }
   };
 
+  const handleEditProductSubmit = async (productData: any) => {
+    if (!editingProduct) return;
+
+    try {
+      setEditLoading(true);
+      const token = localStorage.getItem('authToken');
+
+      const response = await fetch(`http://localhost:8000/products/${editingProduct.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(productData)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setError('');
+        setShowAddModal(false);
+        setEditingProduct(null);
+        // Refresh product list
+        await fetchProducts();
+      } else {
+        const errorData = await response.json();
+        setError(errorData.message || 'Failed to update product');
+      }
+    } catch (err) {
+      setError('Failed to connect to server');
+      console.error('Error updating product:', err);
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
   return (
     <AdminLayout title="Product Management">
       <div className="space-y-6">
@@ -178,6 +225,7 @@ const AdminProductManagement: React.FC = () => {
             <button
               className="absolute top-0 bottom-0 right-0 px-4 py-3"
               onClick={() => setError('')}
+
             >
               <span className="text-red-500">×</span>
             </button>
@@ -350,12 +398,26 @@ const AdminProductManagement: React.FC = () => {
           )}
         </div>
 
-        {/* Add Product Modal */}
+        {/* Add/Edit Product Modal */}
         <AddProductModal
           isOpen={showAddModal}
-          onClose={() => setShowAddModal(false)}
-          onSubmit={handleAddProductSubmit}
-          loading={addLoading}
+          onClose={() => {
+            setShowAddModal(false);
+            setEditingProduct(null);
+          }}
+          onSubmit={editingProduct ? handleEditProductSubmit : handleAddProductSubmit}
+          loading={editingProduct ? editLoading : addLoading}
+          product={editingProduct ? {
+            name: editingProduct.name,
+            description: editingProduct.description,
+            price: editingProduct.price,
+            quantity: editingProduct.quantity,
+            sku: editingProduct.sku || '',
+            category_id: editingProduct.category_id,
+            status: editingProduct.status,
+            is_active: editingProduct.is_active
+          } : null}
+          isEdit={!!editingProduct}
         />
       </div>
     </AdminLayout>
