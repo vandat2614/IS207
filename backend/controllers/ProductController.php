@@ -124,7 +124,7 @@ class ProductController
 
         $required = ['name', 'price', 'quantity', 'sku'];
         foreach ($required as $field) {
-            if (!isset($data[$field])) {
+            if (!isset($data[$field]) || empty(trim($data[$field]))) {
                 JWTHandler::sendError("{$field} is required", 400);
             }
         }

@@ -119,7 +119,10 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSu
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Form submitted, validating...'); // Debug log
+    console.log('Current formData:', formData); // Debug log
     if (validateForm()) {
+      console.log('Validation passed, submitting formData:', formData); // Debug log
       onSubmit(formData);
     }
   };
