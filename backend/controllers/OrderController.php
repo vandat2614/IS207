@@ -364,6 +364,71 @@ class OrderController
         }
     }
 
+    // Dashboard statistics
+    public static function getDashboardStats()
+    {
+        JWTHandler::requireAdmin();
+
+        try {
+            $db = Database::getInstance();
+
+            // Get total users
+            $totalUsers = $db->fetchOne("SELECT COUNT(*) as count FROM users")['count'];
+
+            // Get total products
+            $totalProducts = $db->fetchOne("SELECT COUNT(*) as count FROM products WHERE is_active = 1")['count'];
+
+            // Get total orders
+            $totalOrders = $db->fetchOne("SELECT COUNT(*) as count FROM orders")['count'];
+
+            // Get total revenue
+            $revenueResult = $db->fetchOne("SELECT COALESCE(SUM(total_amount), 0) as revenue FROM orders WHERE payment_status = 'paid'");
+            $totalRevenue = (float)$revenueResult['revenue'];
+
+            // Get recent orders (last 3)
+            $recentOrders = $db->fetchAll(
+                "SELECT
+                    o.id, o.order_number, o.total_amount, o.status, o.ordered_at,
+                    u.first_name, u.last_name, u.email
+                 FROM orders o
+                 JOIN users u ON o.user_id = u.id
+                 ORDER BY o.ordered_at DESC
+                 LIMIT 3"
+            );
+
+            // Get order status breakdown
+            $orderStatusStats = $db->fetchAll(
+                "SELECT status, COUNT(*) as count FROM orders GROUP BY status"
+            );
+
+            // Get monthly revenue for chart (last 6 months)
+            $monthlyRevenue = $db->fetchAll(
+                "SELECT
+                    DATE_FORMAT(ordered_at, '%Y-%m') as month,
+                    COALESCE(SUM(total_amount), 0) as revenue
+                 FROM orders
+                 WHERE payment_status = 'paid'
+                 AND ordered_at >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+                 GROUP BY DATE_FORMAT(ordered_at, '%Y-%m')
+                 ORDER BY month ASC"
+            );
+
+            JWTHandler::sendSuccess([
+                'stats' => [
+                    'total_users' => (int)$totalUsers,
+                    'total_products' => (int)$totalProducts,
+                    'total_orders' => (int)$totalOrders,
+                    'total_revenue' => $totalRevenue,
+                    'order_status_breakdown' => $orderStatusStats,
+                    'monthly_revenue' => $monthlyRevenue
+                ],
+                'recent_orders' => $recentOrders
+            ]);
+        } catch (Exception $e) {
+            JWTHandler::sendError('Failed to get dashboard stats: ' . $e->getMessage(), 500);
+        }
+    }
+
     // Cart management methods
     public static function getCart()
     {

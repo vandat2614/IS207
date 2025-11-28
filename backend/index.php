@@ -129,6 +129,9 @@ function handleGet($parts)
                     case 'orders':
                         OrderController::getAllOrders();
                         break;
+                    case 'dashboard':
+                        OrderController::getDashboardStats();
+                        break;
                     case 'products':
                         ProductController::getProducts();
                         break;
