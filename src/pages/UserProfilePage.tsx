@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Button from '../components/Button';
+import AddAddressModal from '../components/AddAddressModal';
 
 const UserProfilePage: React.FC = () => {
   const [editMode, setEditMode] = useState(false);
@@ -16,6 +17,8 @@ const UserProfilePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showAddAddressModal, setShowAddAddressModal] = useState(false);
+  const [addingAddress, setAddingAddress] = useState(false);
 
   // Get token from localStorage
   const getToken = () => localStorage.getItem('authToken');
@@ -258,6 +261,67 @@ const UserProfilePage: React.FC = () => {
     window.location.href = '/';
   };
 
+  const handleAddAddress = async (addressData: any) => {
+    const token = getToken();
+    if (!token) {
+      alert('Please login to add address');
+      return;
+    }
+
+    setAddingAddress(true);
+    try {
+      const response = await fetch('http://localhost:8000/profile/addresses', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(addressData)
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+
+        // Refresh profile data to get updated addresses
+        const profileResponse = await fetch('http://localhost:8000/profile', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (profileResponse.ok) {
+          const profileData = await profileResponse.json();
+          if (profileData.error === false && profileData.data) {
+            // Process addresses
+            const addresses = (profileData.data.addresses || []).map((addr: any) => ({
+              id: addr.id,
+              type: addr.address_type,
+              lines: [
+                addr.first_name + ' ' + addr.last_name,
+                addr.street_address,
+                addr.apartment ? 'Apt ' + addr.apartment : null,
+                `${addr.city}, ${addr.state_province || ''} ${addr.postal_code}`,
+                addr.country
+              ].filter(Boolean)
+            }));
+            setSavedAddresses(addresses);
+          }
+        }
+
+        setShowAddAddressModal(false);
+        alert('Address added successfully!');
+      } else {
+        const errorData = await response.json();
+        alert(errorData.message || 'Failed to add address');
+      }
+    } catch (err) {
+      console.error('Error adding address:', err);
+      alert('Failed to add address. Please try again.');
+    } finally {
+      setAddingAddress(false);
+    }
+  };
+
   // Loading state
   if (loading) {
     return (
@@ -498,7 +562,7 @@ const UserProfilePage: React.FC = () => {
                 <span className="material-icons text-3xl text-slate-700 dark:text-slate-300">home</span>
                 <h2 className="text-3xl font-extrabold tracking-tight">Saved Addresses</h2>
               </div>
-              <Button variant="secondary">
+              <Button variant="secondary" onClick={() => setShowAddAddressModal(true)}>
                 <span className="material-icons text-base mr-2">add_location</span>
                 <span>Add New Address</span>
               </Button>
@@ -539,6 +603,14 @@ const UserProfilePage: React.FC = () => {
           </section>
         </div>
       </div>
+
+      {/* Add Address Modal */}
+      <AddAddressModal
+        isOpen={showAddAddressModal}
+        onClose={() => setShowAddAddressModal(false)}
+        onSubmit={handleAddAddress}
+        loading={addingAddress}
+      />
     </div>
   );
 };
