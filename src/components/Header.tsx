@@ -331,11 +331,11 @@ const Header: React.FC = () => {
               {/* Admin Panel Link - Only for admins */}
               {isAdmin && (
                 <Link
-                  to="/admin/orders"
+                  to="/admin/dashboard"
                   className={`text-sm font-medium transition-colors ${
                     isActiveLink('/admin')
-                      ? 'text-red-500'
-                      : 'text-slate-700 dark:text-slate-300 hover:text-red-500 dark:hover:text-red-500'
+                      ? 'text-blue-500'
+                      : 'text-slate-700 dark:text-slate-300 hover:text-blue-500 dark:hover:text-blue-500'
                   }`}
                 >
                   Admin Panel
@@ -586,11 +586,11 @@ const Header: React.FC = () => {
               {/* Admin Panel Link - Only for admins in mobile menu */}
               {isAdmin && (
                 <Link
-                  to="/admin/orders"
+                  to="/admin/dashboard"
                   className={`text-sm font-medium transition-colors ${
                     isActiveLink('/admin')
-                      ? 'text-red-500'
-                      : 'text-slate-700 dark:text-slate-300 hover:text-red-500 dark:hover:text-red-500'
+                      ? 'text-blue-500'
+                      : 'text-slate-700 dark:text-slate-300 hover:text-blue-500 dark:hover:text-blue-500'
                   }`}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
