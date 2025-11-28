@@ -5,6 +5,10 @@ interface AddAddressModalProps {
   onClose: () => void;
   onSubmit: (address: AddressData) => void;
   loading: boolean;
+  address?: AddressData | null;
+  isEdit?: boolean;
+  userFirstName?: string;
+  userLastName?: string;
 }
 
 interface AddressData {
@@ -22,7 +26,7 @@ interface AddressData {
 
 type AddressErrors = Partial<Record<keyof AddressData, string>>;
 
-const AddAddressModal: React.FC<AddAddressModalProps> = ({ isOpen, onClose, onSubmit, loading }) => {
+const AddAddressModal: React.FC<AddAddressModalProps> = ({ isOpen, onClose, onSubmit, loading, address, isEdit, userFirstName, userLastName }) => {
   const [formData, setFormData] = useState<AddressData>({
     address_type: 'Home Address',
     first_name: '',
@@ -37,24 +41,39 @@ const AddAddressModal: React.FC<AddAddressModalProps> = ({ isOpen, onClose, onSu
   });
   const [errors, setErrors] = useState<AddressErrors>({});
 
-  // Reset form when modal opens
+  // Reset form when modal opens or when address/isEdit changes
   useEffect(() => {
     if (isOpen) {
-      setFormData({
-        address_type: 'Home Address',
-        first_name: '',
-        last_name: '',
-        street_address: '',
-        apartment: '',
-        city: '',
-        state_province: '',
-        postal_code: '',
-        country: 'United States',
-        is_default: false
-      });
+      if (isEdit && address) {
+        setFormData({
+          address_type: address.address_type || 'Home Address',
+          first_name: userFirstName || '',
+          last_name: userLastName || '',
+          street_address: address.street_address || '',
+          apartment: address.apartment || '',
+          city: address.city || '',
+          state_province: address.state_province || '',
+          postal_code: address.postal_code || '',
+          country: address.country || 'United States',
+          is_default: address.is_default || false
+        });
+      } else {
+        setFormData({
+          address_type: 'Home Address',
+          first_name: userFirstName || '',
+          last_name: userLastName || '',
+          street_address: '',
+          apartment: '',
+          city: '',
+          state_province: '',
+          postal_code: '',
+          country: 'United States',
+          is_default: false
+        });
+      }
       setErrors({});
     }
-  }, [isOpen]);
+  }, [isOpen, address, isEdit, userFirstName, userLastName]);
 
   const validateForm = (): boolean => {
     const newErrors: AddressErrors = {};
@@ -112,7 +131,7 @@ const AddAddressModal: React.FC<AddAddressModalProps> = ({ isOpen, onClose, onSu
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-slate-900">Add New Address</h2>
+          <h2 className="text-xl font-bold text-slate-900">{isEdit ? 'Edit Address' : 'Add New Address'}</h2>
           <button
             onClick={onClose}
             className="text-slate-400 hover:text-slate-600"
@@ -315,7 +334,7 @@ const AddAddressModal: React.FC<AddAddressModalProps> = ({ isOpen, onClose, onSu
               {loading && (
                 <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
               )}
-              Add Address
+              {isEdit ? 'Update Address' : 'Add Address'}
             </button>
           </div>
         </form>

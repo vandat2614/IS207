@@ -18,7 +18,9 @@ const UserProfilePage: React.FC = () => {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAddAddressModal, setShowAddAddressModal] = useState(false);
+  const [showEditAddressModal, setShowEditAddressModal] = useState(false);
   const [addingAddress, setAddingAddress] = useState(false);
+  const [editingAddress, setEditingAddress] = useState<any>(null);
 
   // Get token from localStorage
   const getToken = () => localStorage.getItem('authToken');
@@ -56,10 +58,25 @@ const UserProfilePage: React.FC = () => {
               avatar: user.avatar || ''
             });
 
-            // Process addresses
+            // Process addresses - store both display data and raw data for editing
             const addresses = (profileData.data.addresses || []).map((addr: any) => ({
               id: addr.id,
               type: addr.address_type,
+              // Raw data for editing
+              raw: {
+                id: addr.id,
+                address_type: addr.address_type,
+                first_name: addr.first_name,
+                last_name: addr.last_name,
+                street_address: addr.street_address,
+                apartment: addr.apartment,
+                city: addr.city,
+                state_province: addr.state_province,
+                postal_code: addr.postal_code,
+                country: addr.country,
+                is_default: addr.is_default
+              },
+              // Display lines
               lines: [
                 addr.first_name + ' ' + addr.last_name,
                 addr.street_address,
@@ -283,30 +300,7 @@ const UserProfilePage: React.FC = () => {
         const result = await response.json();
 
         // Refresh profile data to get updated addresses
-        const profileResponse = await fetch('http://localhost:8000/profile', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (profileResponse.ok) {
-          const profileData = await profileResponse.json();
-          if (profileData.error === false && profileData.data) {
-            // Process addresses
-            const addresses = (profileData.data.addresses || []).map((addr: any) => ({
-              id: addr.id,
-              type: addr.address_type,
-              lines: [
-                addr.first_name + ' ' + addr.last_name,
-                addr.street_address,
-                addr.apartment ? 'Apt ' + addr.apartment : null,
-                `${addr.city}, ${addr.state_province || ''} ${addr.postal_code}`,
-                addr.country
-              ].filter(Boolean)
-            }));
-            setSavedAddresses(addresses);
-          }
-        }
+        await refreshAddresses();
 
         setShowAddAddressModal(false);
         alert('Address added successfully!');
@@ -319,6 +313,127 @@ const UserProfilePage: React.FC = () => {
       alert('Failed to add address. Please try again.');
     } finally {
       setAddingAddress(false);
+    }
+  };
+
+  const handleEditAddress = async (addressData: any) => {
+    const token = getToken();
+    if (!token) {
+      alert('Please login to update address');
+      return;
+    }
+
+    setAddingAddress(true); // Reuse the same loading state
+    try {
+      const response = await fetch(`http://localhost:8000/profile/addresses/${editingAddress?.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(addressData)
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+
+        // Refresh profile data to get updated addresses
+        await refreshAddresses();
+
+        setShowEditAddressModal(false);
+        setEditingAddress(null);
+        alert('Address updated successfully!');
+      } else {
+        const errorData = await response.json();
+        alert(errorData.message || 'Failed to update address');
+      }
+    } catch (err) {
+      console.error('Error updating address:', err);
+      alert('Failed to update address. Please try again.');
+    } finally {
+      setAddingAddress(false);
+    }
+  };
+
+  const handleDeleteAddress = async (addressId: number) => {
+    if (!confirm('Are you sure you want to delete this address? This action cannot be undone.')) {
+      return;
+    }
+
+    const token = getToken();
+    if (!token) {
+      alert('Please login to delete address');
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:8000/profile/addresses/${addressId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        // Refresh profile data to get updated addresses
+        await refreshAddresses();
+        alert('Address deleted successfully!');
+      } else {
+        const errorData = await response.json();
+        alert(errorData.message || 'Failed to delete address');
+      }
+    } catch (err) {
+      console.error('Error deleting address:', err);
+      alert('Failed to delete address. Please try again.');
+    }
+  };
+
+  const refreshAddresses = async () => {
+    const token = getToken();
+    if (!token) return;
+
+    try {
+      const profileResponse = await fetch('http://localhost:8000/profile', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (profileResponse.ok) {
+        const profileData = await profileResponse.json();
+        if (profileData.error === false && profileData.data) {
+          // Process addresses - store both display data and raw data for editing
+          const addresses = (profileData.data.addresses || []).map((addr: any) => ({
+            id: addr.id,
+            type: addr.address_type,
+            // Raw data for editing
+            raw: {
+              id: addr.id,
+              address_type: addr.address_type,
+              first_name: addr.first_name,
+              last_name: addr.last_name,
+              street_address: addr.street_address,
+              apartment: addr.apartment,
+              city: addr.city,
+              state_province: addr.state_province,
+              postal_code: addr.postal_code,
+              country: addr.country,
+              is_default: addr.is_default
+            },
+            // Display lines
+            lines: [
+              addr.first_name + ' ' + addr.last_name,
+              addr.street_address,
+              addr.apartment ? 'Apt ' + addr.apartment : null,
+              `${addr.city}, ${addr.state_province || ''} ${addr.postal_code}`,
+              addr.country
+            ].filter(Boolean)
+          }));
+          setSavedAddresses(addresses);
+        }
+      }
+    } catch (err) {
+      console.error('Error refreshing addresses:', err);
     }
   };
 
@@ -570,17 +685,26 @@ const UserProfilePage: React.FC = () => {
 
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               {savedAddresses.map((address: any, index: number) => (
-                <div key={index} className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-6">
+                <div key={address.id || index} className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-bold text-lg flex items-center gap-2">
                       <span className="material-icons text-lg">{address.type === 'Home Address' ? 'home' : 'business'}</span>
                       {address.type}
                     </h3>
                     <div className="flex gap-2">
-                      <button className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
+                      <button
+                        onClick={() => {
+                          setEditingAddress(address);
+                          setShowEditAddressModal(true);
+                        }}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
+                      >
                         <span className="material-icons text-lg">edit</span>
                       </button>
-                      <button className="flex h-8 w-8 items-center justify-center rounded-lg text-red-500 hover:bg-red-500/10">
+                      <button
+                        onClick={() => handleDeleteAddress(address.id)}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-red-500 hover:bg-red-500/10"
+                      >
                         <span className="material-icons text-lg">delete</span>
                       </button>
                     </div>
@@ -610,6 +734,23 @@ const UserProfilePage: React.FC = () => {
         onClose={() => setShowAddAddressModal(false)}
         onSubmit={handleAddAddress}
         loading={addingAddress}
+        userFirstName={userInfo.firstName}
+        userLastName={userInfo.lastName}
+      />
+
+      {/* Edit Address Modal */}
+      <AddAddressModal
+        isOpen={showEditAddressModal}
+        onClose={() => {
+          setShowEditAddressModal(false);
+          setEditingAddress(null);
+        }}
+        onSubmit={handleEditAddress}
+        loading={addingAddress}
+        address={editingAddress?.raw}
+        isEdit={true}
+        userFirstName={userInfo.firstName}
+        userLastName={userInfo.lastName}
       />
     </div>
   );
