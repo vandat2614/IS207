@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import ProductCard from '../components/ProductCard';
 import Button from '../components/Button';
 
@@ -9,6 +10,16 @@ const HomePage: React.FC = () => {
   const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentCategoryIndex, setCurrentCategoryIndex] = useState(0);
+  const [isAutoSliding, setIsAutoSliding] = useState(true);
+  const [isHovered, setIsHovered] = useState(false);
+
+  // Auto-slide configuration
+  const AUTO_SLIDE_INTERVAL = 5000; // 5 seconds
+  const PAUSE_AFTER_INTERACTION = 10000; // 10 seconds pause after user interaction
+
+  const autoSlideRef = useRef<NodeJS.Timeout | null>(null);
+  const pauseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -23,21 +34,20 @@ const HomePage: React.FC = () => {
         const categoriesResponse = await fetch('http://localhost:8000/categories');
         if (categoriesResponse.ok) {
           const categoriesData = await categoriesResponse.json();
-          // Use real categories if available, otherwise use fallback with images
-          const categoriesWithImages = categoriesData.data.map((cat: any, index: number) => {
-            const fallbackImages = [
-              'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=400&h=300&fit=crop',
-              'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=300&fit=crop',
-              'https://images.unsplash.com/photo-1544638748-267ef3d7d5a?w=400&h=300&fit=crop',
-              'https://images.unsplash.com/photo-1575428652377-a2d80e666850?w=400&h=300&fit=crop',
-            ];
-            return {
-              name: cat.name,
-              image: cat.image || fallbackImages[index % fallbackImages.length],
-              slug: cat.slug,
-            };
-          });
-          setCategories(categoriesWithImages);
+          console.log('Homepage categories API response:', categoriesData);
+
+          const categoriesArray = categoriesData.data?.categories || categoriesData.data || [];
+          console.log('Homepage categories data:', categoriesArray);
+
+          // Process categories with real data from database
+          const processedCategories = categoriesArray.map((cat: any) => ({
+            name: cat.name,
+            image: cat.image || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=600&h=400&fit=crop',
+            slug: cat.slug,
+          }));
+
+          console.log('Homepage processed categories:', processedCategories);
+          setCategories(processedCategories);
           categoriesLoaded = true;
         }
       } catch (err) {
@@ -115,26 +125,9 @@ const HomePage: React.FC = () => {
           },
         ]);
       } else if (!categoriesLoaded && productsLoaded) {
-        // Products loaded but categories failed - show fallback categories
-        console.log('Categories failed but products loaded, using fallback categories');
-        setCategories([
-          {
-            name: 'Shoes',
-            image: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=400&h=300&fit=crop',
-          },
-          {
-            name: 'Shirts',
-            image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=300&fit=crop',
-          },
-          {
-            name: 'Pants',
-            image: 'https://images.unsplash.com/photo-1544638748-267ef3d7d5a?w=400&h=300&fit=crop',
-          },
-          {
-            name: 'Caps',
-            image: 'https://images.unsplash.com/photo-1575428652377-a2d80e666850?w=400&h=300&fit=crop',
-          },
-        ]);
+        // Categories failed but products loaded - show empty categories (no fallback)
+        console.log('Categories failed but products loaded, showing no categories');
+        setCategories([]);
       }
       // If categories loaded but products failed, keep existing categories and don't set mock products
 
@@ -148,6 +141,80 @@ const HomePage: React.FC = () => {
     console.log('Add to cart:', productId);
     // TODO: Implement cart functionality
   };
+
+  // Category carousel functions
+  const nextCategories = () => {
+    if (categories.length > 4) {
+      pauseAutoSlide();
+      setCurrentCategoryIndex((prevIndex) =>
+        prevIndex + 4 >= categories.length ? 0 : prevIndex + 4
+      );
+    }
+  };
+
+  const prevCategories = () => {
+    if (categories.length > 4) {
+      pauseAutoSlide();
+      setCurrentCategoryIndex((prevIndex) =>
+        prevIndex - 4 < 0 ? Math.max(0, categories.length - 4) : prevIndex - 4
+      );
+    }
+  };
+
+  // Auto-slide functions
+  const startAutoSlide = () => {
+    if (autoSlideRef.current) {
+      clearInterval(autoSlideRef.current);
+    }
+    autoSlideRef.current = setInterval(() => {
+      if (isAutoSliding && !isHovered && categories.length > 4) {
+        setCurrentCategoryIndex((prevIndex) =>
+          prevIndex + 4 >= categories.length ? 0 : prevIndex + 4
+        );
+      }
+    }, AUTO_SLIDE_INTERVAL);
+  };
+
+  const pauseAutoSlide = () => {
+    setIsAutoSliding(false);
+    if (pauseTimeoutRef.current) {
+      clearTimeout(pauseTimeoutRef.current);
+    }
+    pauseTimeoutRef.current = setTimeout(() => {
+      setIsAutoSliding(true);
+    }, PAUSE_AFTER_INTERACTION);
+  };
+
+  const stopAutoSlide = () => {
+    if (autoSlideRef.current) {
+      clearInterval(autoSlideRef.current);
+      autoSlideRef.current = null;
+    }
+    if (pauseTimeoutRef.current) {
+      clearTimeout(pauseTimeoutRef.current);
+      pauseTimeoutRef.current = null;
+    }
+  };
+
+  // Auto-slide effect
+  useEffect(() => {
+    if (categories.length > 4 && !loading) {
+      startAutoSlide();
+    }
+
+    return () => {
+      stopAutoSlide();
+    };
+  }, [categories.length, loading, isAutoSliding, isHovered]);
+
+  // Handle dot clicks with pause
+  const handleDotClick = (index: number) => {
+    pauseAutoSlide();
+    setCurrentCategoryIndex(index * 4);
+  };
+
+  // Get visible categories (max 4 at a time)
+  const visibleCategories = categories.slice(currentCategoryIndex, currentCategoryIndex + 4);
 
   if (loading) {
     return (
@@ -197,22 +264,77 @@ const HomePage: React.FC = () => {
           <h2 className="text-3xl font-bold text-center mb-12 text-slate-900 dark:text-white">
             Shop by Category
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {categories.map((category, index) => (
-              <div key={index} className="group relative overflow-hidden rounded-lg">
-                <img
-                  alt={category.name}
-                  className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-300"
-                  src={category.image}
-                />
-                <div className="absolute inset-0 bg-black/40"></div>
-                <div className="absolute bottom-0 left-0 p-6">
-                  <h3 className="text-xl font-semibold text-white">
-                    {category.name}
-                  </h3>
-                </div>
+
+          {/* Category Carousel */}
+          <div
+            className="relative"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+          >
+            {/* Navigation Arrows */}
+            {categories.length > 4 && (
+              <>
+                <button
+                  onClick={prevCategories}
+                  className="absolute left-0 top-1/2 -translate-y-1/2 z-10 text-slate-400 hover:text-blue-500 transition-colors duration-200 text-4xl hover:scale-110"
+                  aria-label="Previous categories"
+                >
+                  <span className="material-icons">chevron_left</span>
+                </button>
+                <button
+                  onClick={nextCategories}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 z-10 text-slate-400 hover:text-blue-500 transition-colors duration-200 text-4xl hover:scale-110"
+                  aria-label="Next categories"
+                >
+                  <span className="material-icons">chevron_right</span>
+                </button>
+              </>
+            )}
+
+            {/* Categories Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 px-12">
+              {visibleCategories.map((category, index) => (
+                <Link
+                  key={`${currentCategoryIndex}-${index}`}
+                  to={`/products?category=${category.slug}`}
+                  className="group relative overflow-hidden rounded-lg block animate-slide-in-right"
+                  style={{
+                    animationDelay: `${index * 200}ms`,
+                    animationFillMode: 'both'
+                  }}
+                >
+                  <img
+                    alt={category.name}
+                    className="w-full h-64 object-cover transform group-hover:scale-105 transition-transform duration-300"
+                    src={category.image}
+                  />
+                  <div className="absolute inset-0 bg-black/40"></div>
+                  <div className="absolute bottom-0 left-0 p-6">
+                    <h3 className="text-xl font-semibold text-white">
+                      {category.name}
+                    </h3>
+                  </div>
+                </Link>
+              ))}
+            </div>
+
+            {/* Dots Indicator */}
+            {categories.length > 4 && (
+              <div className="flex justify-center mt-8 space-x-2">
+                {Array.from({ length: Math.ceil(categories.length / 4) }, (_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => handleDotClick(i)}
+                    className={`w-3 h-3 rounded-full transition-all duration-200 ${
+                      Math.floor(currentCategoryIndex / 4) === i
+                        ? 'bg-blue-500'
+                        : 'bg-slate-300 dark:bg-slate-600 hover:bg-slate-400 dark:hover:bg-slate-500'
+                    }`}
+                    aria-label={`Go to category set ${i + 1}`}
+                  />
+                ))}
               </div>
-            ))}
+            )}
           </div>
         </div>
       </section>

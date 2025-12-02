@@ -21,103 +21,38 @@ const CategoriesPage: React.FC = () => {
 
   const fetchCategories = async () => {
     try {
-      // Try to fetch from API, fallback to sample data
       const response = await fetch('http://localhost:8000/categories');
       if (response.ok) {
         const data = await response.json();
-        const categoriesData = data.data || [];
+        console.log('Categories API response:', data);
 
-        // Process categories with enhanced data
-        const processedCategories = categoriesData.map((cat: any, index: number) => ({
+        const categoriesData = data.data?.categories || data.data || [];
+        console.log('Categories data:', categoriesData);
+
+        // Process categories with real data from database
+        const processedCategories = categoriesData.map((cat: any) => ({
           id: cat.id,
           name: cat.name,
           slug: cat.slug,
-          description: getCategoryDescription(cat.slug),
-          image: getCategoryImage(cat.slug),
-          productCount: getCategoryProductCount(index),
-          featured: isFeaturedCategory(cat.slug)
+          description: cat.description || 'Discover amazing products in this category',
+          image: cat.image || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=600&h=400&fit=crop',
+          productCount: 0, // Will be updated with real count if available
+          featured: false // Can be added to database schema later if needed
         }));
 
+        console.log('Processed categories:', processedCategories);
         setCategories(processedCategories);
       } else {
-        // Use sample categories if API fails
-        setCategories(getSampleCategories());
+        console.error('Failed to fetch categories from API:', response.status);
+        setCategories([]);
       }
     } catch (err) {
       console.error('Error fetching categories:', err);
-      setCategories(getSampleCategories());
+      setCategories([]);
     } finally {
       setLoading(false);
     }
   };
-
-  const getCategoryDescription = (slug: string): string => {
-    const descriptions: { [key: string]: string } = {
-      'shoes': 'Complete your look with our stylish shoe collection',
-      'shirts': 'Comfortable and trendy shirts for every occasion',
-      'pants': 'Find the perfect fit with our premium pants selection',
-      'caps': 'Top off your style with our trendy headwear'
-    };
-    return descriptions[slug] || 'Discover amazing products in this category';
-  };
-
-  const getCategoryImage = (slug: string): string => {
-    const images: { [key: string]: string } = {
-      'shoes': 'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=600&h=400&fit=crop',
-      'shirts': 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=600&h=400&fit=crop',
-      'pants': 'https://images.unsplash.com/photo-1544638748-267ef3d7d5a?w=600&h=400&fit=crop',
-      'caps': 'https://images.unsplash.com/photo-1571910258025-e3a1b0d6a30c?w=600&h=400&fit=crop'
-    };
-    return images[slug] || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=600&h=400&fit=crop';
-  };
-
-  const getCategoryProductCount = (index: number): number => {
-    // Sample product counts for demo
-    return [24, 18, 12, 9][index] || 15;
-  };
-
-  const isFeaturedCategory = (slug: string): boolean => {
-    return ['shoes', 'shirts'].includes(slug);
-  };
-
-  const getSampleCategories = (): Category[] => [
-    {
-      id: 1,
-      name: 'Shoes',
-      slug: 'shoes',
-      description: 'Complete your look with our stylish shoe collection',
-      image: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=600&h=400&fit=crop',
-      productCount: 24,
-      featured: true
-    },
-    {
-      id: 2,
-      name: 'Shirts',
-      slug: 'shirts',
-      description: 'Comfortable and trendy shirts for every occasion',
-      image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=600&h=400&fit=crop',
-      productCount: 18,
-      featured: true
-    },
-    {
-      id: 3,
-      name: 'Pants',
-      slug: 'pants',
-      description: 'Find the perfect fit with our premium pants selection',
-      image: 'https://images.unsplash.com/photo-1544638748-267ef3d7d5a?w=600&h=400&fit=crop',
-      productCount: 12,
-      featured: false
-    },
-    {
-      id: 4,
-      name: 'Caps',
-      slug: 'caps',
-      description: 'Top off your style with our trendy headwear',
-      image: 'https://images.unsplash.com/photo-1571910258025-e3a1b0d6a30c?w=600&h=400&fit=crop',
-      productCount: 9,
-      featured: false
-    }
-  ];
 
   if (loading) {
     return (
@@ -178,7 +113,7 @@ const CategoriesPage: React.FC = () => {
                 </p>
                 <div className="flex items-center justify-between mt-4">
                   <span className="text-sm text-slate-600 dark:text-slate-300">
-                    {category.productCount} items
+                    Explore products
                   </span>
                   <Link
                     to={`/products?category=${category.slug}`}
