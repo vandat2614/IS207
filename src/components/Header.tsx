@@ -471,9 +471,11 @@ const Header: React.FC = () => {
               <span className="material-icons-outlined text-slate-700 dark:text-slate-300">
                 shopping_cart
               </span>
-              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-xs font-medium text-white">
-                {cartCount}
-              </span>
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-xs font-medium text-white">
+                  {cartCount}
+                </span>
+              )}
             </Link>
 
             {/* Mobile Menu Button */}
