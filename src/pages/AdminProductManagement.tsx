@@ -7,7 +7,7 @@ interface Product {
   name: string;
   description: string;
   price: number;
-  category: string;
+  category_name: string;
   image?: string | null;
   quantity: number;
   created_at: string;
@@ -40,12 +40,27 @@ const AdminProductManagement: React.FC = () => {
   const [editLoading, setEditLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState<ProductResponse['pagination'] | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
     fetchProducts(currentPage);
   }, [currentPage]);
 
-  const fetchProducts = async (page: number = 1) => {
+  // Debounced search effect
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+      }
+      // Re-fetch products when search term changes
+      fetchProducts(1, searchTerm);
+    }, 1500); // 500ms debounce delay
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
+
+  const fetchProducts = async (page: number = 1, search: string = '') => {
     try {
       const token = localStorage.getItem('authToken');
       if (!token) {
@@ -55,10 +70,15 @@ const AdminProductManagement: React.FC = () => {
       }
 
       setLoading(true);
+      setIsSearching(search.trim().length > 0);
       const params = new URLSearchParams({
         page: page.toString(),
         limit: '10'
       });
+
+      if (search.trim()) {
+        params.append('search', search.trim());
+      }
 
       const response = await fetch(`http://localhost:8000/admin/products?${params}`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -78,6 +98,7 @@ const AdminProductManagement: React.FC = () => {
       console.error('Error fetching products:', err);
     } finally {
       setLoading(false);
+      setIsSearching(false);
     }
   };
 
@@ -234,17 +255,36 @@ const AdminProductManagement: React.FC = () => {
     <AdminLayout title="Product Management">
       <div className="space-y-6">
         {/* Header Actions */}
-        <div className="flex justify-between items-center">
-          <div>
+        <div className="flex justify-between items-center flex-wrap gap-4">
+          <div className="flex-1 min-w-0">
             <p className="text-slate-600">Manage your product catalog and inventory</p>
           </div>
-          <button
-            onClick={handleAddProduct}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
-          >
-            <span className="material-icons text-sm mr-2">add</span>
-            Add Product
-          </button>
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search products..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm w-64"
+              />
+              <span className="material-icons absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">
+                search
+              </span>
+              {isSearching && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={handleAddProduct}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
+            >
+              <span className="material-icons text-sm mr-2">add</span>
+              Add Product
+            </button>
+          </div>
         </div>
 
         {/* Success Message */}
@@ -345,7 +385,7 @@ const AdminProductManagement: React.FC = () => {
                           <div className="text-xs text-slate-500">ID: {product.id}</div>
                         </div>
                       </th>
-                      <td className="px-6 py-4">{product.category || 'N/A'}</td>
+                      <td className="px-6 py-4">{product.category_name || 'N/A'}</td>
                       <td className="px-6 py-4">${Number(product.price || 0).toFixed(2)}</td>
                       <td className="px-6 py-4">{product.quantity || 0}</td>
                       <td className="px-6 py-4">

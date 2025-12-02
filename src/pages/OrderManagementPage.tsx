@@ -104,7 +104,7 @@ const OrderManagementPage: React.FC = () => {
       }
       // Re-fetch orders when search term changes
       fetchOrders(1, statusFilter);
-    }, 1000);
+    }, 1500);
 
     return () => clearTimeout(timeoutId);
   }, [searchTerm]);
@@ -216,13 +216,18 @@ const OrderManagementPage: React.FC = () => {
             <p className="text-slate-600">View and manage customer orders</p>
           </div>
           <div className="flex space-x-4">
-            <input
-              type="text"
-              placeholder="Search orders..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search orders..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <span className="material-icons absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">
+                search
+              </span>
+            </div>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
