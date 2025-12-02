@@ -47,7 +47,7 @@ const OrderManagementPage: React.FC = () => {
 
       const params = new URLSearchParams({
         page: page.toString(),
-        limit: '20'
+        limit: '10'
       });
 
       if (status && status !== '') {

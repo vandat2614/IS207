@@ -232,7 +232,7 @@ const Header: React.FC = () => {
       // Set new timeout for search
       (window as any).searchTimeout = setTimeout(() => {
         performSearch(value);
-      }, 300);
+      }, 1500);
     } else {
       setSearchResults([]);
       setShowSearchDropdown(false);
