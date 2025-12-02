@@ -12,11 +12,14 @@ const HomePage: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+      setLoading(true);
+      setError(null);
 
-        // Fetch categories
+      let categoriesLoaded = false;
+      let productsLoaded = false;
+
+      // Fetch categories independently
+      try {
         const categoriesResponse = await fetch('http://localhost:8000/categories');
         if (categoriesResponse.ok) {
           const categoriesData = await categoriesResponse.json();
@@ -35,9 +38,14 @@ const HomePage: React.FC = () => {
             };
           });
           setCategories(categoriesWithImages);
+          categoriesLoaded = true;
         }
+      } catch (err) {
+        console.warn('Failed to load categories:', err);
+      }
 
-        // Fetch featured products (first 4 products)
+      // Fetch featured products independently
+      try {
         const productsResponse = await fetch('http://localhost:8000/products?page=1&limit=4');
         if (productsResponse.ok) {
           const productsData = await productsResponse.json();
@@ -49,11 +57,15 @@ const HomePage: React.FC = () => {
             price: parseFloat(product.price),
           }));
           setFeaturedProducts(processedProducts);
+          productsLoaded = true;
         }
-
       } catch (err) {
-        console.error('Error loading homepage data:', err);
-        // Always show mock data, don't set error to block loading
+        console.warn('Failed to load featured products:', err);
+      }
+
+      // Only show mock data if both APIs failed
+      if (!categoriesLoaded && !productsLoaded) {
+        console.log('Both APIs failed, showing mock data');
         setCategories([
           {
             name: 'Shoes',
@@ -102,9 +114,31 @@ const HomePage: React.FC = () => {
             price: 29.99,
           },
         ]);
-      } finally {
-        setLoading(false);
+      } else if (!categoriesLoaded && productsLoaded) {
+        // Products loaded but categories failed - show fallback categories
+        console.log('Categories failed but products loaded, using fallback categories');
+        setCategories([
+          {
+            name: 'Shoes',
+            image: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=400&h=300&fit=crop',
+          },
+          {
+            name: 'Shirts',
+            image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=300&fit=crop',
+          },
+          {
+            name: 'Pants',
+            image: 'https://images.unsplash.com/photo-1544638748-267ef3d7d5a?w=400&h=300&fit=crop',
+          },
+          {
+            name: 'Caps',
+            image: 'https://images.unsplash.com/photo-1575428652377-a2d80e666850?w=400&h=300&fit=crop',
+          },
+        ]);
       }
+      // If categories loaded but products failed, keep existing categories and don't set mock products
+
+      setLoading(false);
     };
 
     fetchData();

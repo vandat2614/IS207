@@ -47,6 +47,15 @@ class ProductController
                 array_merge($params, [$limit, $offset])
             );
 
+            // Parse JSON images for each product
+            foreach ($products as &$product) {
+                if ($product['images']) {
+                    $product['images'] = json_decode($product['images'], true);
+                } else {
+                    $product['images'] = [];
+                }
+            }
+
             // Get total count
             $count = $db->fetchOne(
                 "SELECT COUNT(*) as total FROM products p
