@@ -17,6 +17,16 @@ interface Product {
   is_active?: boolean;
 }
 
+interface ProductResponse {
+  products: Product[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    total_pages: number;
+  };
+}
+
 const AdminProductManagement: React.FC = () => {
   const [selectedProducts, setSelectedProducts] = useState<number[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -28,12 +38,14 @@ const AdminProductManagement: React.FC = () => {
   const [addLoading, setAddLoading] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editLoading, setEditLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState<ProductResponse['pagination'] | null>(null);
 
   useEffect(() => {
-    fetchProducts();
-  }, []);
+    fetchProducts(currentPage);
+  }, [currentPage]);
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (page: number = 1) => {
     try {
       const token = localStorage.getItem('authToken');
       if (!token) {
@@ -43,13 +55,19 @@ const AdminProductManagement: React.FC = () => {
       }
 
       setLoading(true);
-      const response = await fetch('http://localhost:8000/admin/products', {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '10'
+      });
+
+      const response = await fetch(`http://localhost:8000/admin/products?${params}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
       if (response.ok) {
         const data = await response.json();
         setProducts(data.data?.products || []);
+        setPagination(data.data?.pagination);
         setError('');
       } else {
         const errorData = await response.json();
@@ -195,7 +213,7 @@ const AdminProductManagement: React.FC = () => {
         setShowAddModal(false);
         setEditingProduct(null);
         // Refresh product list
-        await fetchProducts();
+        await fetchProducts(currentPage);
       } else {
         const errorData = await response.json();
         setError(errorData.message || 'Failed to update product');
@@ -206,6 +224,10 @@ const AdminProductManagement: React.FC = () => {
     } finally {
       setEditLoading(false);
     }
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
   };
 
   return (
@@ -381,34 +403,47 @@ const AdminProductManagement: React.FC = () => {
           )}
 
           {/* Pagination */}
-          {!loading && products.length > 0 && (
+          {pagination && pagination.total_pages > 1 && (
             <nav aria-label="Table navigation" className="flex items-center justify-between p-4 border-t border-slate-200">
               <span className="text-sm font-normal text-slate-500">
-                Showing <span className="font-semibold text-slate-900">1-{products.length}</span> of <span className="font-semibold text-slate-900">{products.length}</span>
+                Showing <span className="font-semibold text-slate-900">
+                  {((pagination.page - 1) * pagination.limit) + 1}
+                </span> to <span className="font-semibold text-slate-900">
+                  {Math.min(pagination.page * pagination.limit, pagination.total)}
+                </span> of <span className="font-semibold text-slate-900">
+                  {pagination.total}
+                </span>
               </span>
               <ul className="inline-flex items-center -space-x-px">
                 <li>
-                  <button className="px-3 py-2 ml-0 leading-tight text-slate-500 bg-white border border-slate-300 rounded-l-lg hover:bg-slate-100 hover:text-slate-700">
+                  <button
+                    onClick={() => handlePageChange(pagination.page - 1)}
+                    disabled={pagination.page <= 1}
+                    className="px-3 py-2 ml-0 leading-tight text-slate-500 bg-white border border-slate-300 rounded-l-lg hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     Previous
                   </button>
                 </li>
+                {Array.from({ length: pagination.total_pages }, (_, i) => i + 1).map((page) => (
+                  <li key={page}>
+                    <button
+                      onClick={() => handlePageChange(page)}
+                      className={`px-3 py-2 leading-tight border ${
+                        page === pagination.page
+                          ? 'text-white border-blue-300 bg-blue-600 hover:bg-blue-100 hover:text-blue-700'
+                          : 'text-slate-500 bg-white border-slate-300 hover:bg-slate-100 hover:text-slate-700'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  </li>
+                ))}
                 <li>
-                  <button aria-current="page" className="z-10 px-3 py-2 leading-tight text-white border border-blue-300 bg-blue-600 hover:bg-blue-100 hover:text-blue-700">
-                    1
-                  </button>
-                </li>
-                <li>
-                  <button className="px-3 py-2 leading-tight text-slate-500 bg-white border border-slate-300 hover:bg-slate-100 hover:text-slate-700">
-                    2
-                  </button>
-                </li>
-                <li>
-                  <button className="px-3 py-2 leading-tight text-slate-500 bg-white border border-slate-300 hover:bg-slate-100 hover:text-slate-700">
-                    3
-                  </button>
-                </li>
-                <li>
-                  <button className="px-3 py-2 leading-tight text-slate-500 bg-white border border-slate-300 rounded-r-lg hover:bg-slate-100 hover:text-slate-700">
+                  <button
+                    onClick={() => handlePageChange(pagination.page + 1)}
+                    disabled={pagination.page >= pagination.total_pages}
+                    className="px-3 py-2 leading-tight text-slate-500 bg-white border border-slate-300 rounded-r-lg hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     Next
                   </button>
                 </li>
