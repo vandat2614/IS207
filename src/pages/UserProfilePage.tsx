@@ -607,7 +607,7 @@ const UserProfilePage: React.FC = () => {
 
             <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
               <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 text-left text-sm">
-                <thead className="bg-blue-600 text-white">
+                <thead className="bg-blue-500 text-white">
                   <tr className="flex">
                     <th className="flex-1 px-6 py-3 font-semibold text-left flex items-center gap-2 min-w-0">
                       <span className="material-icons text-sm flex-shrink-0">tag</span>

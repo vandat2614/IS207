@@ -162,21 +162,21 @@ const AdminUsers: React.FC = () => {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-slate-50 border-b border-slate-200">
+                <thead className="bg-blue-500 text-white">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider">
                       User
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider">
                       Email
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider">
                       Role
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider">
                       Joined
                     </th>
-                    <th className="px-6 py-4 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-right text-xs font-medium uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>

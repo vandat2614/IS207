@@ -34,6 +34,7 @@ const OrderManagementPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState<OrderResponse['pagination'] | null>(null);
   const [updatingOrder, setUpdatingOrder] = useState<number | null>(null);
+  const [hasInteractedWithSearch, setHasInteractedWithSearch] = useState(false);
 
   const fetchOrders = async (page: number = 1, status: string = '') => {
     setLoading(true);
@@ -97,6 +98,9 @@ const OrderManagementPage: React.FC = () => {
   }, [currentPage, statusFilter]);
 
   useEffect(() => {
+    // Only trigger search if user has interacted with the search input
+    if (!hasInteractedWithSearch) return;
+
     // Debounce search - reset to page 1 when search term changes
     const timeoutId = setTimeout(() => {
       if (currentPage !== 1) {
@@ -107,7 +111,7 @@ const OrderManagementPage: React.FC = () => {
     }, 1500);
 
     return () => clearTimeout(timeoutId);
-  }, [searchTerm]);
+  }, [searchTerm, hasInteractedWithSearch]);
 
 
 
@@ -222,6 +226,8 @@ const OrderManagementPage: React.FC = () => {
                 placeholder="Search orders..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                onFocus={() => setHasInteractedWithSearch(true)}
+                onClick={() => setHasInteractedWithSearch(true)}
                 className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
               <span className="material-icons absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">
@@ -247,7 +253,7 @@ const OrderManagementPage: React.FC = () => {
         <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
-              <thead className="text-xs text-slate-700 uppercase bg-slate-50">
+              <thead className="bg-blue-500 text-white">
                 <tr>
                   <th className="px-6 py-3" scope="col">Order #</th>
                   <th className="px-6 py-3" scope="col">Customer</th>
