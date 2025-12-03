@@ -38,7 +38,18 @@ const ProductsPage: React.FC = () => {
         const categoriesResponse = await fetch('http://localhost:8000/categories');
         if (categoriesResponse.ok) {
           const categoriesData = await categoriesResponse.json();
-          setCategories(categoriesData.data || []);
+          if (categoriesData.error === false && categoriesData.data && categoriesData.data.categories) {
+            setCategories(categoriesData.data.categories);
+          } else {
+            // Fallback categories if API response format is unexpected
+            setCategories([
+              { id: 1, name: 'Shoes', slug: 'shoes' },
+              { id: 2, name: 'Shirts', slug: 'shirts' },
+              { id: 3, name: 'Pants', slug: 'pants' },
+              { id: 4, name: 'Caps', slug: 'caps' },
+              { id: 5, name: 'Hats', slug: 'hats' },
+            ]);
+          }
         } else {
           // Fallback categories if API fails
           setCategories([
