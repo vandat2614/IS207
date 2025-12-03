@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import Button from '../components/Button';
 import AddAddressModal from '../components/AddAddressModal';
 
@@ -608,42 +607,39 @@ const UserProfilePage: React.FC = () => {
 
             <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
               <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 text-left text-sm">
-                <thead className="bg-slate-50 dark:bg-slate-700">
-                  <tr>
-                    <th className="px-6 py-3 font-semibold flex items-center gap-2">
-                      <span className="material-icons text-sm">tag</span>
-                      Order ID
+                <thead className="bg-blue-600 text-white">
+                  <tr className="flex">
+                    <th className="flex-1 px-6 py-3 font-semibold text-left flex items-center gap-2 min-w-0">
+                      <span className="material-icons text-sm flex-shrink-0">tag</span>
+                      <span className="truncate">Order ID</span>
                     </th>
-                    <th className="px-6 py-3 font-semibold flex items-center gap-2">
-                      <span className="material-icons text-sm">calendar_today</span>
-                      Date
+                    <th className="flex-1 px-6 py-3 font-semibold text-left flex items-center gap-2 min-w-0">
+                      <span className="material-icons text-sm flex-shrink-0">calendar_today</span>
+                      <span className="truncate">Date</span>
                     </th>
-                    <th className="px-6 py-3 font-semibold flex items-center gap-2">
-                      <span className="material-icons text-sm">attach_money</span>
-                      Total
+                    <th className="flex-1 px-6 py-3 font-semibold text-left flex items-center gap-2 min-w-0">
+                      <span className="material-icons text-sm flex-shrink-0">attach_money</span>
+                      <span className="truncate">Total</span>
                     </th>
-                    <th className="px-6 py-3 font-semibold flex items-center gap-2">
-                      <span className="material-icons text-sm">info</span>
-                      Status
-                    </th>
-                    <th className="relative py-3.5 pl-3 pr-4 sm:pr-6">
-                      <span className="sr-only">View</span>
+                    <th className="flex-1 px-6 py-3 font-semibold text-left flex items-center gap-2 min-w-0">
+                      <span className="material-icons text-sm flex-shrink-0">info</span>
+                      <span className="truncate">Status</span>
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                   {orderHistory.map((order) => (
-                    <tr key={order.id}>
-                      <td className="whitespace-nowrap px-6 py-4 font-medium text-slate-900 dark:text-white">
-                        {order.id}
+                    <tr key={order.id} className="flex">
+                      <td className="flex-1 px-6 py-4 font-medium text-slate-900 dark:text-white min-w-0">
+                        <span className="truncate block">{order.id}</span>
                       </td>
-                      <td className="whitespace-nowrap px-6 py-4 text-slate-600 dark:text-slate-400">
-                        {order.date}
+                      <td className="flex-1 px-6 py-4 text-slate-600 dark:text-slate-400 min-w-0">
+                        <span className="truncate block">{order.date}</span>
                       </td>
-                      <td className="whitespace-nowrap px-6 py-4 text-slate-600 dark:text-slate-400">
-                        ${order.total.toFixed(2)}
+                      <td className="flex-1 px-6 py-4 text-slate-600 dark:text-slate-400 min-w-0">
+                        <span className="truncate block">${order.total.toFixed(2)}</span>
                       </td>
-                      <td className="whitespace-nowrap px-6 py-4">
+                      <td className="flex-1 px-6 py-4 min-w-0">
                         <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
                           order.statusColor === 'green'
                             ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300'
@@ -652,14 +648,8 @@ const UserProfilePage: React.FC = () => {
                             : 'bg-gray-100 text-gray-800 dark:bg-gray-900/50 dark:text-gray-300'
                         }`}>
                           <span className="material-icons text-xs mr-1">circle</span>
-                          {order.status}
+                          <span className="truncate">{order.status}</span>
                         </span>
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4 text-right">
-                        <Link className="font-semibold text-blue-600 hover:underline flex items-center gap-1" to="#">
-                          <span className="material-icons text-sm">visibility</span>
-                          View Details
-                        </Link>
                       </td>
                     </tr>
                   ))}
@@ -677,7 +667,7 @@ const UserProfilePage: React.FC = () => {
                 <span className="material-icons text-3xl text-slate-700 dark:text-slate-300">home</span>
                 <h2 className="text-3xl font-extrabold tracking-tight">Saved Addresses</h2>
               </div>
-              <Button variant="secondary" onClick={() => setShowAddAddressModal(true)}>
+              <Button onClick={() => setShowAddAddressModal(true)}>
                 <span className="material-icons text-base mr-2">add_location</span>
                 <span>Add New Address</span>
               </Button>
