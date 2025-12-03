@@ -506,6 +506,7 @@ const UserProfilePage: React.FC = () => {
           <div className="mt-4">
             <Button
               variant="secondary"
+              className="hover:border-red-300 hover:text-red-700 focus:ring-red-500"
               onClick={() => {
                 localStorage.removeItem('authToken');
                 window.location.href = '/';

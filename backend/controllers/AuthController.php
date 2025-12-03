@@ -73,6 +73,15 @@ class AuthController
             JWTHandler::sendError('Invalid email format', 400);
         }
 
+        // Name validation - only alphabetic characters and spaces allowed
+        if (!preg_match('/^[a-zA-Z\s]+$/', $firstName)) {
+            JWTHandler::sendError('First name can only contain letters and spaces', 400);
+        }
+
+        if (!preg_match('/^[a-zA-Z\s]+$/', $lastName)) {
+            JWTHandler::sendError('Last name can only contain letters and spaces', 400);
+        }
+
         if (strlen($password) < 8) {
             JWTHandler::sendError('Password must be at least 8 characters', 400);
         }

@@ -61,6 +61,18 @@ const LoginPage: React.FC = () => {
           return;
         }
 
+        // Name validation - only alphabetic characters and spaces allowed
+        const nameRegex = /^[a-zA-Z\s]+$/;
+        if (!nameRegex.test(formData.firstName.trim())) {
+          setError('First name can only contain letters and spaces');
+          return;
+        }
+
+        if (!nameRegex.test(formData.lastName.trim())) {
+          setError('Last name can only contain letters and spaces');
+          return;
+        }
+
         if (formData.password !== formData.confirmPassword) {
           setError('Passwords do not match');
           return;
@@ -72,8 +84,8 @@ const LoginPage: React.FC = () => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            first_name: formData.firstName,
-            last_name: formData.lastName,
+            firstName: formData.firstName,
+            lastName: formData.lastName,
             email: formData.email,
             password: formData.password
           })
