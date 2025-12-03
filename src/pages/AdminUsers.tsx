@@ -8,6 +8,7 @@ interface User {
   email: string;
   role: string;
   created_at: string;
+  avatar?: string | null;
 }
 
 const AdminUsers: React.FC = () => {
@@ -186,8 +187,26 @@ const AdminUsers: React.FC = () => {
                     <tr key={user.id} className="hover:bg-slate-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="w-8 h-8 bg-slate-300 rounded-full flex items-center justify-center mr-3">
-                            <span className="material-icons text-slate-600 text-sm">person</span>
+                          <div className="w-8 h-8 bg-slate-300 rounded-full flex items-center justify-center mr-3 overflow-hidden">
+                            {user.avatar ? (
+                              <img
+                                src={`/${user.avatar}`}
+                                alt={`${user.first_name} ${user.last_name}`}
+                                className="w-full h-full object-cover rounded-full"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                  const fallback = target.nextElementSibling as HTMLElement;
+                                  if (fallback) fallback.style.display = 'flex';
+                                }}
+                              />
+                            ) : null}
+                            <span
+                              className={`material-icons text-slate-600 text-sm ${user.avatar ? 'hidden' : 'flex'}`}
+                              style={{ display: user.avatar ? 'none' : 'flex' }}
+                            >
+                              person
+                            </span>
                           </div>
                           <div>
                             <div className="text-sm font-medium text-slate-900">
