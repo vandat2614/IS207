@@ -504,10 +504,13 @@ const AdminProductManagement: React.FC = () => {
           onClose={() => {
             setShowAddModal(false);
             setEditingProduct(null);
+            // Refresh the products list after modal closes (in case new product was added with images)
+            fetchProducts(currentPage, searchTerm);
           }}
           onSubmit={editingProduct ? handleEditProductSubmit : handleAddProductSubmit}
           loading={editingProduct ? editLoading : addLoading}
           product={editingProduct ? {
+            id: editingProduct.id,
             name: editingProduct.name,
             description: editingProduct.description,
             price: editingProduct.price,

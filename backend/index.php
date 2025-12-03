@@ -213,7 +213,17 @@ function handlePost($parts)
             break;
 
         case 'products':
-            ProductController::createProduct();
+            if (isset($parts[1]) && isset($parts[2]) && $parts[2] === 'images' && isset($parts[3])) {
+                if ($parts[3] === 'upload') {
+                    ProductController::uploadProductImage($parts[1]);
+                } elseif ($parts[3] === 'delete' && isset($parts[4])) {
+                    ProductController::deleteProductImage($parts[1], $parts[4]);
+                } else {
+                    JWTHandler::sendError('Endpoint not found', 404);
+                }
+            } else {
+                ProductController::createProduct();
+            }
             break;
 
         case 'cart':

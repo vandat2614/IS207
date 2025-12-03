@@ -15,6 +15,7 @@ interface AddProductModalProps {
 }
 
 interface ProductData {
+  id?: number;
   name: string;
   description?: string;
   price: number;
@@ -23,6 +24,7 @@ interface ProductData {
   category_id?: number;
   status?: string;
   is_active?: boolean;
+  images?: string[];
 }
 
 type ProductErrors = Partial<Record<keyof ProductData, string>>;
@@ -37,9 +39,12 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSu
     sku: '',
     category_id: undefined,
     status: 'in_stock',
-    is_active: true
+    is_active: true,
+    images: []
   });
   const [errors, setErrors] = useState<ProductErrors>({});
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
 
   // Fetch categories on mount
   useEffect(() => {
@@ -151,6 +156,120 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSu
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
     }
+  };
+
+  const handleImageUpload = async (files: FileList) => {
+    if (!files.length) return;
+
+    setUploadingImages(true);
+
+    try {
+      const token = localStorage.getItem('authToken');
+
+      // First create the product to get an ID, then upload images
+      // For new products, we'll create without images first, then upload
+      if (!isEdit) {
+        // Validate required fields for temporary product creation
+        if (!formData.name.trim() || !formData.sku.trim() || formData.price <= 0) {
+          alert('Please fill in required fields (Name, SKU, Price) before uploading images.');
+          setUploadingImages(false);
+          return;
+        }
+
+        // Create product first without images
+        const tempProductData = { ...formData, images: [] };
+        const response = await fetch('http://localhost:8000/admin/products', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(tempProductData)
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          const productId = result.data.product.id;
+
+          // Now upload images for this product
+          for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const formDataUpload = new FormData();
+            formDataUpload.append('image', file);
+
+            const uploadResponse = await fetch(`http://localhost:8000/products/${productId}/images/upload`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`
+              },
+              body: formDataUpload
+            });
+
+            if (uploadResponse.ok) {
+              const uploadResult = await uploadResponse.json();
+              setUploadedImages(prev => [...prev, uploadResult.data.image_path]);
+              setFormData(prev => ({
+                ...prev,
+                images: [...(prev.images || []), uploadResult.data.image_path]
+              }));
+            }
+          }
+
+          alert('Product and images uploaded successfully!');
+          onClose(); // Close modal after successful creation
+        } else {
+          const errorData = await response.json();
+          alert(errorData.message || 'Failed to create product');
+        }
+      } else {
+        // For editing existing products, upload images directly
+        const productId = product?.id;
+        if (!productId) return;
+
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          const formDataUpload = new FormData();
+          formDataUpload.append('image', file);
+
+          const uploadResponse = await fetch(`http://localhost:8000/products/${productId}/images/upload`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            },
+            body: formDataUpload
+          });
+
+          if (uploadResponse.ok) {
+            const uploadResult = await uploadResponse.json();
+            setUploadedImages(prev => [...prev, uploadResult.data.image_path]);
+            setFormData(prev => ({
+              ...prev,
+              images: [...(prev.images || []), uploadResult.data.image_path]
+            }));
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Image upload error:', error);
+      alert('Failed to upload images. Please try again.');
+    } finally {
+      setUploadingImages(false);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      handleImageUpload(files);
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setUploadedImages(prev => prev.filter((_, i) => i !== index));
+    setFormData(prev => ({
+      ...prev,
+      images: prev.images?.filter((_, i) => i !== index) || []
+    }));
   };
 
   if (!isOpen) return null;
@@ -309,6 +428,88 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSu
             <label htmlFor="is_active" className="ml-2 text-sm text-slate-700">
               Active (visible to customers)
             </label>
+          </div>
+
+          {/* Image Upload */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Product Images
+            </label>
+            <div className="space-y-4">
+              {/* Upload Area */}
+              <div
+                className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                  uploadingImages
+                    ? 'border-blue-300 bg-blue-50'
+                    : 'border-slate-300 hover:border-blue-400 hover:bg-slate-50'
+                }`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const files = e.dataTransfer.files;
+                  if (files.length > 0) {
+                    handleImageUpload(files);
+                  }
+                }}
+              >
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  id="image-upload"
+                  disabled={loading || uploadingImages}
+                />
+                <label htmlFor="image-upload" className="cursor-pointer">
+                  {uploadingImages ? (
+                    <div className="flex flex-col items-center">
+                      <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-2"></div>
+                      <p className="text-sm text-slate-600">Uploading images...</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center">
+                      <span className="material-icons text-4xl text-slate-400 mb-2">cloud_upload</span>
+                      <p className="text-sm text-slate-600 mb-1">
+                        <span className="font-medium text-blue-600">Click to upload</span> or drag and drop
+                      </p>
+                      <p className="text-xs text-slate-500">PNG, JPG, GIF, WebP up to 5MB each</p>
+                    </div>
+                  )}
+                </label>
+              </div>
+
+              {/* Image Preview */}
+              {uploadedImages.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {uploadedImages.map((imagePath, index) => (
+                    <div key={index} className="relative group">
+                      <img
+                        src={`/${imagePath}`}
+                        alt={`Product image ${index + 1}`}
+                        className="w-full h-24 object-cover rounded-lg border border-slate-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(index)}
+                        className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        disabled={loading || uploadingImages}
+                      >
+                        <span className="material-icons text-sm">close</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {uploadedImages.length === 0 && (
+                <p className="text-xs text-slate-500 text-center">No images uploaded yet</p>
+              )}
+            </div>
           </div>
 
           {/* Buttons */}

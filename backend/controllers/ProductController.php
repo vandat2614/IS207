@@ -257,6 +257,150 @@ class ProductController
         }
     }
 
+    public static function uploadProductImage($productId)
+    {
+        JWTHandler::requireAuth();
+
+        // Debug logging
+        error_log("Product Image Upload Debug:");
+        error_log("Product ID: " . $productId);
+        error_log("_FILES array: " . print_r($_FILES, true));
+        error_log("_POST array: " . print_r($_POST, true));
+
+        // Check if product exists
+        $db = Database::getInstance();
+        $product = $db->fetchOne("SELECT id FROM products WHERE id = ?", [$productId]);
+
+        if (!$product) {
+            error_log("Product not found: " . $productId);
+            JWTHandler::sendError('Product not found', 404);
+        }
+
+        // Check if image was uploaded
+        if (!isset($_FILES['image'])) {
+            error_log("No _FILES['image'] set");
+            JWTHandler::sendError('No image field in request', 400);
+        }
+
+        if ($_FILES['image']['error'] !== UPLOAD_ERR_OK) {
+            error_log("Upload error code: " . $_FILES['image']['error']);
+            switch ($_FILES['image']['error']) {
+                case UPLOAD_ERR_INI_SIZE:
+                    JWTHandler::sendError('File exceeds PHP upload_max_filesize limit', 400);
+                case UPLOAD_ERR_FORM_SIZE:
+                    JWTHandler::sendError('File exceeds form MAX_FILE_SIZE limit', 400);
+                case UPLOAD_ERR_PARTIAL:
+                    JWTHandler::sendError('File was only partially uploaded', 400);
+                case UPLOAD_ERR_NO_FILE:
+                    JWTHandler::sendError('No file was uploaded', 400);
+                case UPLOAD_ERR_NO_TMP_DIR:
+                    JWTHandler::sendError('Missing temporary folder', 400);
+                case UPLOAD_ERR_CANT_WRITE:
+                    JWTHandler::sendError('Failed to write file to disk', 400);
+                case UPLOAD_ERR_EXTENSION:
+                    JWTHandler::sendError('File upload stopped by extension', 400);
+                default:
+                    JWTHandler::sendError('Unknown upload error: ' . $_FILES['image']['error'], 400);
+            }
+        }
+
+        $file = $_FILES['image'];
+
+        // Validate file type
+        $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        if (!in_array($file['type'], $allowedTypes)) {
+            JWTHandler::sendError('Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.', 400);
+        }
+
+        // Validate file size (max 5MB)
+        if ($file['size'] > 5 * 1024 * 1024) {
+            JWTHandler::sendError('File too large. Maximum size is 5MB.', 400);
+        }
+
+        // Create uploads/products directory if it doesn't exist
+        $uploadDir = __DIR__ . '/../../public/uploads/products/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+
+        // Generate unique filename
+        $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+        $filename = 'product_' . $productId . '_' . time() . '_' . uniqid() . '.' . $extension;
+        $filepath = $uploadDir . $filename;
+
+        // Debug: Check file paths and permissions
+        error_log("Upload directory: " . $uploadDir);
+        error_log("Full file path: " . $filepath);
+        error_log("Upload dir exists: " . (is_dir($uploadDir) ? 'yes' : 'no'));
+        error_log("Upload dir writable: " . (is_writable($uploadDir) ? 'yes' : 'no'));
+        error_log("Temp file exists: " . (file_exists($file['tmp_name']) ? 'yes' : 'no'));
+
+        // Move uploaded file
+        if (!move_uploaded_file($file['tmp_name'], $filepath)) {
+            error_log("move_uploaded_file failed. Last error: " . error_get_last()['message']);
+            JWTHandler::sendError('Failed to save image: ' . error_get_last()['message'], 500);
+        }
+
+        // Verify file was saved
+        if (!file_exists($filepath)) {
+            error_log("File was not saved to: " . $filepath);
+            JWTHandler::sendError('File was not saved successfully', 500);
+        }
+
+        error_log("File saved successfully to: " . $filepath);
+
+        // Get current product images
+        $product = $db->fetchOne("SELECT images FROM products WHERE id = ?", [$productId]);
+        $currentImages = $product['images'] ? json_decode($product['images'], true) : [];
+
+        // Add new image to array
+        $imagePath = 'uploads/products/' . $filename;
+        $currentImages[] = $imagePath;
+
+        // Update product with new image array
+        $db->update('products', ['images' => json_encode($currentImages)], ['id' => $productId]);
+
+        JWTHandler::sendSuccess([
+            'image_path' => $imagePath,
+            'all_images' => $currentImages
+        ], 'Image uploaded successfully');
+    }
+
+    public static function deleteProductImage($productId, $imageIndex)
+    {
+        JWTHandler::requireAuth();
+
+        $db = Database::getInstance();
+
+        // Get current product images
+        $product = $db->fetchOne("SELECT images FROM products WHERE id = ?", [$productId]);
+        if (!$product) {
+            JWTHandler::sendError('Product not found', 404);
+        }
+
+        $currentImages = $product['images'] ? json_decode($product['images'], true) : [];
+
+        if (!isset($currentImages[$imageIndex])) {
+            JWTHandler::sendError('Image not found', 404);
+        }
+
+        // Delete physical file
+        $imagePath = __DIR__ . '/../../public/' . $currentImages[$imageIndex];
+        if (file_exists($imagePath)) {
+            unlink($imagePath);
+        }
+
+        // Remove image from array
+        array_splice($currentImages, $imageIndex, 1);
+
+        // Update product
+        $db->update('products', ['images' => json_encode($currentImages)], ['id' => $productId]);
+
+        JWTHandler::sendSuccess([
+            'remaining_images' => $currentImages
+        ], 'Image deleted successfully');
+    }
+
     private static function generateSlug($name)
     {
         $slug = strtolower(trim($name));
