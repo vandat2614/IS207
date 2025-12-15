@@ -197,7 +197,7 @@ const ProductDetailPage: React.FC = () => {
       const data = await response.json();
 
       if (response.ok) {
-        alert(`Product added to cart successfully! Size: ${selectedSize}, Color: ${selectedColor}, Quantity: ${selectedQuantity}`);
+        alert(`Product added to cart successfully!`);
         // Update cart count in header immediately
         if ((window as any).updateCartCount) {
           (window as any).updateCartCount();

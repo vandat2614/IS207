@@ -8,7 +8,7 @@ interface Product {
   description: string;
   price: number;
   category_name: string;
-  image?: string | null;
+  images?: string[];
   quantity: number;
   created_at: string;
   sku?: string;
@@ -344,14 +344,14 @@ const AdminProductManagement: React.FC = () => {
               <table className="w-full text-sm text-left">
                 <thead className="bg-blue-500 text-white">
                   <tr>
-                    <th className="p-4" scope="col">
+                    {/* <th className="p-4" scope="col">
                       <input
                         type="checkbox"
                         checked={selectedProducts.length === products.length}
                         onChange={(e) => handleSelectAll(e.target.checked)}
                         className="rounded border-slate-300"
                       />
-                    </th>
+                    </th> */}
                     <th className="px-6 py-3" scope="col">Product Name</th>
                     <th className="px-6 py-3" scope="col">Category</th>
                     <th className="px-6 py-3" scope="col">Price</th>
@@ -363,21 +363,21 @@ const AdminProductManagement: React.FC = () => {
                 <tbody>
                   {products.map((product) => (
                     <tr key={product.id} className="bg-white border-b border-slate-200 hover:bg-slate-50">
-                      <td className="p-4">
+                      {/* <td className="p-4">
                         <input
                           type="checkbox"
                           checked={selectedProducts.includes(product.id)}
                           onChange={() => handleSelectProduct(product.id)}
                           className="rounded border-slate-300"
                         />
-                      </td>
+                      </td> */}
                       <th className="px-6 py-4 font-medium whitespace-nowrap text-slate-900 flex items-center" scope="row">
                         <div className="w-10 h-10 bg-slate-200 rounded-md mr-4 flex items-center justify-center overflow-hidden">
-                          {product.image ? (
+                          {product.images && product.images.length > 0 ? (
                             <img
                               alt={product.name}
                               className="w-full h-full object-cover"
-                              src={`/${product.image}`}
+                              src={product.images[0]}
                               onError={(e) => {
                                 (e.target as HTMLImageElement).style.display = 'none';
                                 (e.target as HTMLImageElement).nextElementSibling!.classList.remove('hidden');

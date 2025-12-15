@@ -47,10 +47,36 @@ class ProductController
                 array_merge($params, [$limit, $offset])
             );
 
-            // Parse JSON images for each product
+            // Parse JSON images for each product and convert to base64
             foreach ($products as &$product) {
                 if ($product['images']) {
-                    $product['images'] = json_decode($product['images'], true);
+                    $images = json_decode($product['images'], true);
+                    $base64Images = [];
+
+                    if (is_array($images)) {
+                        foreach ($images as $imagePath) {
+                            // Try both locations: new backend/public and old public
+                            $filePath1 = __DIR__ . '/../public/' . $imagePath;
+                            $filePath2 = __DIR__ . '/../../public/' . $imagePath;
+
+                            $actualPath = null;
+                            if (file_exists($filePath1)) {
+                                $actualPath = $filePath1;
+                            } elseif (file_exists($filePath2)) {
+                                $actualPath = $filePath2;
+                            }
+
+                            if ($actualPath && file_exists($actualPath)) {
+                                $imageData = file_get_contents($actualPath);
+                                if ($imageData !== false) {
+                                    $mimeType = mime_content_type($actualPath) ?: 'image/jpeg';
+                                    $base64Images[] = 'data:' . $mimeType . ';base64,' . base64_encode($imageData);
+                                }
+                            }
+                        }
+                    }
+
+                    $product['images'] = $base64Images;
                 } else {
                     $product['images'] = [];
                 }
@@ -97,9 +123,35 @@ class ProductController
                 JWTHandler::sendError('Product not found', 404);
             }
 
-            // Parse JSON images
+            // Parse JSON images and convert to base64
             if ($product['images']) {
-                $product['images'] = json_decode($product['images'], true);
+                $images = json_decode($product['images'], true);
+                $base64Images = [];
+
+                if (is_array($images)) {
+                    foreach ($images as $imagePath) {
+                        // Try both locations: new backend/public and old public
+                        $filePath1 = __DIR__ . '/../public/' . $imagePath;
+                        $filePath2 = __DIR__ . '/../../public/' . $imagePath;
+
+                        $actualPath = null;
+                        if (file_exists($filePath1)) {
+                            $actualPath = $filePath1;
+                        } elseif (file_exists($filePath2)) {
+                            $actualPath = $filePath2;
+                        }
+
+                        if ($actualPath && file_exists($actualPath)) {
+                            $imageData = file_get_contents($actualPath);
+                            if ($imageData !== false) {
+                                $mimeType = mime_content_type($actualPath) ?: 'image/jpeg';
+                                $base64Images[] = 'data:' . $mimeType . ';base64,' . base64_encode($imageData);
+                            }
+                        }
+                    }
+                }
+
+                $product['images'] = $base64Images;
             } else {
                 $product['images'] = [];
             }
@@ -318,7 +370,7 @@ class ProductController
         }
 
         // Create uploads/products directory if it doesn't exist
-        $uploadDir = __DIR__ . '/../../public/uploads/products/';
+        $uploadDir = __DIR__ . '/../public/uploads/products/';
         if (!is_dir($uploadDir)) {
             mkdir($uploadDir, 0755, true);
         }
@@ -385,7 +437,7 @@ class ProductController
         }
 
         // Delete physical file
-        $imagePath = __DIR__ . '/../../public/' . $currentImages[$imageIndex];
+        $imagePath = __DIR__ . '/../public/' . $currentImages[$imageIndex];
         if (file_exists($imagePath)) {
             unlink($imagePath);
         }

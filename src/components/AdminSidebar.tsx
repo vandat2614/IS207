@@ -28,7 +28,7 @@ const AdminSidebar: React.FC = () => {
       description: 'Add, edit, delete products'
     },
     {
-      name: 'Customers',
+      name: 'Accounts',
       path: '/admin/users',
       icon: 'people',
       description: 'User management'

@@ -159,18 +159,18 @@ const ProductsPage: React.FC = () => {
                 }
               }
 
-              return {
-                id: product.id,
-                category: product.category_name,
-                category_slug: product.category_slug,
-                brand: product.brand,
-                image: images?.[0] || 'https://images.unsplash.com/photo-1571910258025-e3a1b0d6a30c?w=400&h=300&fit=crop',
-                title: product.name,
-                description: product.description || `Premium ${product.name} for your style`,
-                price: parseFloat(product.price),
-                quantity: parseInt(product.quantity) || 0,
-                rating: parseFloat(product.rating) || 0,
-              };
+                      return {
+                        id: product.id,
+                        category: product.category_name,
+                        category_slug: product.category_slug,
+                        brand: product.brand,
+                        image: images?.[0] || 'https://images.unsplash.com/photo-1571910258025-e3a1b0d6a30c?w=400&h=300&fit=crop',
+                        title: product.name,
+                        description: product.description || `Premium ${product.name} for your style`,
+                        price: parseFloat(product.price),
+                        quantity: parseInt(product.quantity) || 0,
+                        rating: parseFloat(product.rating) || 0,
+                      };
             });
             setProducts(processedProducts);
           } else {
@@ -496,7 +496,7 @@ const ProductsPage: React.FC = () => {
                         category: product.category_name,
                         category_slug: product.category_slug,
                         brand: product.brand,
-                        image: images?.[0] || 'https://images.unsplash.com/photo-1571910258025-e3a1b0d6a30c?w=400&h=300&fit=crop',
+                        image: images?.[0] ? `http://localhost:8000/${images[0]}` : 'https://images.unsplash.com/photo-1571910258025-e3a1b0d6a30c?w=400&h=300&fit=crop',
                         title: product.name,
                         description: product.description || `Premium ${product.name} for your style`,
                         price: parseFloat(product.price),

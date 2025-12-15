@@ -32,13 +32,51 @@ require_once __DIR__ . '/controllers/UserController.php';
 require_once __DIR__ . '/controllers/ProductController.php';
 require_once __DIR__ . '/controllers/OrderController.php';
 
-// Set Content-Type header
-header('Content-Type: application/json');
-
 // Get request method and URI
 $method = $_SERVER['REQUEST_METHOD'];
 $uri = str_replace('/backend', '', $_SERVER['REQUEST_URI']);
 $uri = explode('?', $uri)[0]; // Remove query parameters
+
+// Check if this is a static file request - handle BEFORE setting Content-Type
+if ($method === 'GET' && preg_match('/\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$/', $uri)) {
+    $filePath = __DIR__ . '/public' . $uri;
+
+    // Debug logging
+    error_log("Static file request: $uri");
+    error_log("Resolved path: $filePath");
+    error_log("File exists: " . (file_exists($filePath) ? 'YES' : 'NO'));
+
+    if (file_exists($filePath)) {
+        $mimeTypes = [
+            'css' => 'text/css',
+            'js' => 'application/javascript',
+            'png' => 'image/png',
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'gif' => 'image/gif',
+            'ico' => 'image/x-icon',
+            'svg' => 'image/svg+xml',
+            'woff' => 'font/woff',
+            'woff2' => 'font/woff2',
+            'ttf' => 'font/ttf',
+            'eot' => 'application/vnd.ms-fontobject'
+        ];
+        $extension = pathinfo($filePath, PATHINFO_EXTENSION);
+        $mimeType = $mimeTypes[$extension] ?? 'application/octet-stream';
+
+        header('Content-Type: ' . $mimeType);
+        header('Cache-Control: public, max-age=31536000');
+        readfile($filePath);
+        exit;
+    } else {
+        // If static file doesn't exist, continue to API routing
+        error_log("Static file not found: $filePath");
+    }
+}
+
+// Set Content-Type header for API responses
+header('Content-Type: application/json');
+
 $uri_parts = array_filter(explode('/', trim($uri, '/')));
 
 // Route handling
