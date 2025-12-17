@@ -9,7 +9,8 @@ interface Product {
   price: number;
   images: string[];
   quantity: number;
-  sku: string;
+  sku?: string;
+  sale_percentage?: number;
 }
 
 const ProductDetailPage: React.FC = () => {
@@ -263,13 +264,24 @@ const ProductDetailPage: React.FC = () => {
             <p className="text-slate-600 dark:text-slate-400 text-lg">
               {product.description}
             </p>
-            <p className="text-sm text-slate-500 mt-2">SKU: {product.sku}</p>
           </div>
 
           <div>
-            <span className="text-3xl font-bold text-blue-500">
-              ${product.price.toFixed(2)}
-            </span>
+            {/* Sale Price Logic */}
+            {product.sale_percentage && product.sale_percentage > 0 ? (
+              <div className="flex items-center gap-3">
+                <span className="text-2xl text-gray-500 line-through">
+                  ${product.price.toFixed(2)}
+                </span>
+                <span className="text-3xl font-bold text-blue-600">
+                  ${(product.price * (1 - product.sale_percentage / 100)).toFixed(2)}
+                </span>
+              </div>
+            ) : (
+              <span className="text-3xl font-bold text-blue-500">
+                ${product.price.toFixed(2)}
+              </span>
+            )}
             {product.quantity > 0 ? (
               <p className="text-green-600 mt-1">In Stock ({product.quantity} available)</p>
             ) : (
@@ -311,8 +323,8 @@ const ProductDetailPage: React.FC = () => {
                   onClick={() => handleColorSelect(color)}
                   className={`px-4 py-2 border rounded-md transition-all ${
                     selectedColor === color
-                      ? 'border-green-500 bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300'
-                      : 'border-slate-300 dark:border-slate-700 hover:border-green-500'
+                      ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
+                      : 'border-slate-300 dark:border-slate-700 hover:border-blue-500'
                   }`}
                 >
                   {color}

@@ -453,7 +453,39 @@ class OrderController
             $totalAmount = 0;
 
             foreach ($cartItems as &$item) {
-                $item['images'] = json_decode($item['images'], true) ?: [];
+                // Parse JSON images and convert to base64 (same as ProductController)
+                if ($item['images']) {
+                    $images = json_decode($item['images'], true);
+                    $base64Images = [];
+
+                    if (is_array($images)) {
+                        foreach ($images as $imagePath) {
+                            // Try both locations: new backend/public and old public
+                            $filePath1 = __DIR__ . '/../public/' . $imagePath;
+                            $filePath2 = __DIR__ . '/../../public/' . $imagePath;
+
+                            $actualPath = null;
+                            if (file_exists($filePath1)) {
+                                $actualPath = $filePath1;
+                            } elseif (file_exists($filePath2)) {
+                                $actualPath = $filePath2;
+                            }
+
+                            if ($actualPath && file_exists($actualPath)) {
+                                $imageData = file_get_contents($actualPath);
+                                if ($imageData !== false) {
+                                    $mimeType = mime_content_type($actualPath) ?: 'image/jpeg';
+                                    $base64Images[] = 'data:' . $mimeType . ';base64,' . base64_encode($imageData);
+                                }
+                            }
+                        }
+                    }
+
+                    $item['images'] = $base64Images;
+                } else {
+                    $item['images'] = [];
+                }
+
                 $item['subtotal'] = (float)$item['price'] * (int)$item['quantity'];
                 $totalItems += $item['quantity'];
                 $totalAmount += $item['subtotal'];

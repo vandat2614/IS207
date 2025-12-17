@@ -183,12 +183,15 @@ class ProductController
         JWTHandler::requireAuth();
         $data = json_decode(file_get_contents('php://input'), true);
 
-        $required = ['name', 'price', 'quantity', 'sku'];
+        $required = ['name', 'price', 'quantity'];
         foreach ($required as $field) {
             if (!isset($data[$field]) || empty(trim($data[$field]))) {
                 JWTHandler::sendError("{$field} is required", 400);
             }
         }
+
+        // Auto-generate SKU if not provided
+        $sku = isset($data['sku']) && !empty(trim($data['sku'])) ? trim($data['sku']) : self::generateSKU($data['name']);
 
         $productData = [
             'name' => trim($data['name']),
@@ -196,11 +199,14 @@ class ProductController
             'description' => isset($data['description']) ? trim($data['description']) : null,
             'price' => (float)$data['price'],
             'quantity' => (int)$data['quantity'],
-            'sku' => trim($data['sku']),
+            'sku' => $sku,
             'category_id' => isset($data['category_id']) ? (int)$data['category_id'] : null,
             'images' => isset($data['images']) ? json_encode($data['images']) : null,
             'status' => isset($data['status']) ? trim($data['status']) : 'in_stock',
-            'is_active' => isset($data['is_active']) ? (bool)$data['is_active'] : true
+            'is_active' => isset($data['is_active']) ? (bool)$data['is_active'] : true,
+            'sale_percentage' => isset($data['sale_percentage']) ? (float)$data['sale_percentage'] : 0.00,
+            'sale_start_date' => isset($data['sale_start_date']) && !empty($data['sale_start_date']) ? $data['sale_start_date'] : null,
+            'sale_end_date' => isset($data['sale_end_date']) && !empty($data['sale_end_date']) ? $data['sale_end_date'] : null
         ];
 
         try {
@@ -248,11 +254,17 @@ class ProductController
             }
 
             $updateData = [];
-            $allowed = ['name', 'description', 'price', 'quantity', 'category_id', 'status', 'is_active'];
+            $allowed = ['name', 'description', 'price', 'quantity', 'category_id', 'status', 'is_active', 'sale_percentage', 'sale_start_date', 'sale_end_date'];
 
             foreach ($allowed as $field) {
                 if (isset($data[$field])) {
-                    $updateData[$field] = $data[$field];
+                    if ($field === 'sale_percentage') {
+                        $updateData[$field] = (float)$data[$field];
+                    } elseif (in_array($field, ['sale_start_date', 'sale_end_date'])) {
+                        $updateData[$field] = !empty($data[$field]) ? $data[$field] : null;
+                    } else {
+                        $updateData[$field] = $data[$field];
+                    }
                 }
             }
 
@@ -471,5 +483,61 @@ class ProductController
         }
 
         return $slug;
+    }
+
+    private static function generateSKU($name)
+    {
+        $db = Database::getInstance();
+
+        // Extract first 2 letters of name for AB part
+        $namePart = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $name), 0, 2));
+
+        // If name is too short, pad with 'X'
+        if (strlen($namePart) < 2) {
+            $namePart = str_pad($namePart, 2, 'X');
+        }
+
+        // Use 'PR' as default category prefix (can be customized per category later)
+        $categoryPrefix = 'PR';
+
+        // Find the next sequential number for this pattern
+        $basePattern = $categoryPrefix . '-' . $namePart . '-';
+        $existingSKUs = $db->fetchAll(
+            "SELECT sku FROM products WHERE sku LIKE ? ORDER BY sku DESC",
+            [$basePattern . '%']
+        );
+
+        $nextNumber = 1;
+        if (!empty($existingSKUs)) {
+            // Extract numbers from existing SKUs and find the highest
+            $numbers = [];
+            foreach ($existingSKUs as $sku) {
+                $parts = explode('-', $sku['sku']);
+                if (count($parts) === 3) {
+                    $number = (int)$parts[2];
+                    if ($number > 0) {
+                        $numbers[] = $number;
+                    }
+                }
+            }
+            if (!empty($numbers)) {
+                $nextNumber = max($numbers) + 1;
+            }
+        }
+
+        // Format as 3-digit number (001, 002, etc.)
+        $formattedNumber = str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+
+        $sku = $categoryPrefix . '-' . $namePart . '-' . $formattedNumber;
+
+        // Double-check uniqueness (in case of race conditions)
+        $counter = 1;
+        $originalSKU = $sku;
+        while ($db->fetchOne("SELECT id FROM products WHERE sku = ?", [$sku])) {
+            $sku = $categoryPrefix . '-' . $namePart . '-' . str_pad($nextNumber + $counter, 3, '0', STR_PAD_LEFT);
+            $counter++;
+        }
+
+        return $sku;
     }
 }

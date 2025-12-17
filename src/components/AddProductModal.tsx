@@ -8,10 +8,11 @@ interface Category {
 interface AddProductModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (product: ProductData) => void;
+  onSubmit: (product: ProductData, files?: File[]) => void;
   loading: boolean;
   product?: ProductData | null;
   isEdit?: boolean;
+  modalMode?: 'add' | 'edit' | 'sale';
 }
 
 interface ProductData {
@@ -20,16 +21,19 @@ interface ProductData {
   description?: string;
   price: number;
   quantity: number;
-  sku: string;
+  sku?: string;
   category_id?: number;
   status?: string;
   is_active?: boolean;
   images?: string[];
+  sale_percentage?: number;
+  sale_start_date?: string;
+  sale_end_date?: string;
 }
 
 type ProductErrors = Partial<Record<keyof ProductData, string>>;
 
-const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSubmit, loading, product, isEdit }) => {
+const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSubmit, loading, product, isEdit, modalMode = 'add' }) => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [formData, setFormData] = useState<ProductData>({
     name: '',
@@ -44,6 +48,7 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSu
   });
   const [errors, setErrors] = useState<ProductErrors>({});
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
 
   // Fetch categories on mount
@@ -72,7 +77,8 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSu
   // Reset form when modal opens or when product changes
   useEffect(() => {
     if (isOpen) {
-      if (isEdit && product) {
+      if (product) {
+        // Load existing product data
         setFormData({
           name: product.name || '',
           description: product.description || '',
@@ -81,9 +87,14 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSu
           sku: product.sku || '',
           category_id: product.category_id,
           status: product.status || 'in_stock',
-          is_active: product.is_active !== undefined ? product.is_active : true
+          is_active: product.is_active !== undefined ? product.is_active : true,
+          // Always load sale data for edit/sale modes
+          sale_percentage: modalMode === 'edit' || modalMode === 'sale' ? product.sale_percentage : undefined,
+          sale_start_date: modalMode === 'edit' || modalMode === 'sale' ? product.sale_start_date : undefined,
+          sale_end_date: modalMode === 'edit' || modalMode === 'sale' ? product.sale_end_date : undefined
         });
       } else {
+        // New product
         setFormData({
           name: '',
           description: '',
@@ -97,17 +108,13 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSu
       }
       setErrors({});
     }
-  }, [isOpen, product, isEdit]);
+  }, [isOpen, product, modalMode]);
 
   const validateForm = (): boolean => {
     const newErrors: ProductErrors = {};
 
     if (!formData.name.trim()) {
       newErrors.name = 'Product name is required';
-    }
-
-    if (!formData.sku.trim()) {
-      newErrors.sku = 'SKU is required';
     }
 
     if (formData.price <= 0) {
@@ -126,9 +133,11 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSu
     e.preventDefault();
     console.log('Form submitted, validating...'); // Debug log
     console.log('Current formData:', formData); // Debug log
+    console.log('Uploaded files:', uploadedFiles); // Debug log
     if (validateForm()) {
       console.log('Validation passed, submitting formData:', formData); // Debug log
-      onSubmit(formData);
+      // Pass both formData and uploadedFiles to parent
+      onSubmit(formData, uploadedFiles);
     }
   };
 
@@ -164,65 +173,23 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSu
     setUploadingImages(true);
 
     try {
-      const token = localStorage.getItem('authToken');
-
-      // First create the product to get an ID, then upload images
-      // For new products, we'll create without images first, then upload
+      // For new products, just store images locally - don't create product yet
       if (!isEdit) {
-        // Validate required fields for temporary product creation
-        if (!formData.name.trim() || !formData.sku.trim() || formData.price <= 0) {
-          alert('Please fill in required fields (Name, SKU, Price) before uploading images.');
-          setUploadingImages(false);
-          return;
-        }
-
-        // Create product first without images
-        const tempProductData = { ...formData, images: [] };
-        const response = await fetch('http://localhost:8000/admin/products', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(tempProductData)
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          const productId = result.data.product.id;
-
-          // Now upload images for this product
-          for (let i = 0; i < files.length; i++) {
-            const file = files[i];
-            const formDataUpload = new FormData();
-            formDataUpload.append('image', file);
-
-            const uploadResponse = await fetch(`http://localhost:8000/products/${productId}/images/upload`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${token}`
-              },
-              body: formDataUpload
-            });
-
-            if (uploadResponse.ok) {
-              const uploadResult = await uploadResponse.json();
-              setUploadedImages(prev => [...prev, uploadResult.data.image_path]);
-              setFormData(prev => ({
-                ...prev,
-                images: [...(prev.images || []), uploadResult.data.image_path]
-              }));
-            }
-          }
-
-          alert('Product and images uploaded successfully!');
-          onClose(); // Close modal after successful creation
-        } else {
-          const errorData = await response.json();
-          alert(errorData.message || 'Failed to create product');
+        // Convert files to local preview URLs and store actual files
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          // Create local preview URL
+          const previewUrl = URL.createObjectURL(file);
+          setUploadedImages(prev => [...prev, previewUrl]);
+          setUploadedFiles(prev => [...prev, file]);
+          setFormData(prev => ({
+            ...prev,
+            images: [...(prev.images || []), previewUrl]
+          }));
         }
       } else {
-        // For editing existing products, upload images directly
+        // For editing existing products, upload images to server immediately
+        const token = localStorage.getItem('authToken');
         const productId = product?.id;
         if (!productId) return;
 
@@ -278,7 +245,11 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSu
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-slate-900">{isEdit ? 'Edit Product' : 'Add New Product'}</h2>
+          <h2 className="text-xl font-bold text-slate-900">
+            {modalMode === 'sale' ? 'Manage Sale' :
+             modalMode === 'edit' ? 'Edit Product' :
+             'Add New Product'}
+          </h2>
           <button
             onClick={onClose}
             className="text-slate-400 hover:text-slate-600"
@@ -288,229 +259,299 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSu
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Product Name */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Product Name *
-            </label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => handleInputChange('name', e.target.value)}
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.name ? 'border-red-500' : 'border-slate-300'
-              }`}
-              placeholder="Enter product name"
-              disabled={loading}
-            />
-            {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Description
-            </label>
-            <textarea
-              value={formData.description || ''}
-              onChange={(e) => handleInputChange('description', e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              rows={3}
-              placeholder="Enter product description"
-              disabled={loading}
-            />
-          </div>
-
-          {/* Price */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Price *
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={formData.price}
-              onChange={(e) => handleNumberInput('price', e.target.value)}
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.price ? 'border-red-500' : 'border-slate-300'
-              }`}
-              placeholder="0.00"
-              disabled={loading}
-            />
-            {errors.price && <p className="mt-1 text-sm text-red-600">{errors.price}</p>}
-          </div>
-
-          {/* Quantity */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Quantity *
-            </label>
-            <input
-              type="number"
-              min="0"
-              value={formData.quantity}
-              onChange={(e) => handleNumberInput('quantity', e.target.value)}
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.quantity ? 'border-red-500' : 'border-slate-300'
-              }`}
-              placeholder="0"
-              disabled={loading}
-            />
-            {errors.quantity && <p className="mt-1 text-sm text-red-600">{errors.quantity}</p>}
-          </div>
-
-          {/* SKU */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              SKU *
-            </label>
-            <input
-              type="text"
-              value={formData.sku}
-              onChange={(e) => handleInputChange('sku', e.target.value)}
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.sku ? 'border-red-500' : 'border-slate-300'
-              }`}
-              placeholder="Enter SKU"
-              disabled={loading}
-            />
-            {errors.sku && <p className="mt-1 text-sm text-red-600">{errors.sku}</p>}
-          </div>
-
-          {/* Category */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Category
-            </label>
-            <select
-              value={formData.category_id || ''}
-              onChange={(e) => handleInputChange('category_id', e.target.value ? parseInt(e.target.value) : undefined)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={loading}
-            >
-              <option value="">Select a category</option>
-              {(categories || []).map(category => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Status */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Status
-            </label>
-            <select
-              value={formData.status}
-              onChange={(e) => handleInputChange('status', e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={loading}
-            >
-              <option value="in_stock">In Stock</option>
-              <option value="low_stock">Low Stock</option>
-              <option value="out_of_stock">Out of Stock</option>
-            </select>
-          </div>
-
-          {/* Active Status */}
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="is_active"
-              checked={formData.is_active}
-              onChange={(e) => handleInputChange('is_active', e.target.checked)}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
-              disabled={loading}
-            />
-            <label htmlFor="is_active" className="ml-2 text-sm text-slate-700">
-              Active (visible to customers)
-            </label>
-          </div>
-
-          {/* Image Upload */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Product Images
-            </label>
-            <div className="space-y-4">
-              {/* Upload Area */}
-              <div
-                className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-                  uploadingImages
-                    ? 'border-blue-300 bg-blue-50'
-                    : 'border-slate-300 hover:border-blue-400 hover:bg-slate-50'
-                }`}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  const files = e.dataTransfer.files;
-                  if (files.length > 0) {
-                    handleImageUpload(files);
-                  }
-                }}
-              >
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                  id="image-upload"
-                  disabled={loading || uploadingImages}
-                />
-                <label htmlFor="image-upload" className="cursor-pointer">
-                  {uploadingImages ? (
-                    <div className="flex flex-col items-center">
-                      <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-2"></div>
-                      <p className="text-sm text-slate-600">Uploading images...</p>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center">
-                      <span className="material-icons text-4xl text-slate-400 mb-2">cloud_upload</span>
-                      <p className="text-sm text-slate-600 mb-1">
-                        <span className="font-medium text-blue-600">Click to upload</span> or drag and drop
-                      </p>
-                      <p className="text-xs text-slate-500">PNG, JPG, GIF, WebP up to 5MB each</p>
-                    </div>
-                  )}
+          {/* Product Details - Only show in add/edit modes */}
+          {modalMode !== 'sale' && (
+            <>
+              {/* Product Name */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Product Name *
                 </label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => handleInputChange('name', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    errors.name ? 'border-red-500' : 'border-slate-300'
+                  }`}
+                  placeholder="Enter product name"
+                  disabled={loading}
+                />
+                {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
               </div>
 
-              {/* Image Preview */}
-              {uploadedImages.length > 0 && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  {uploadedImages.map((imagePath, index) => (
-                    <div key={index} className="relative group">
-                      <img
-                        src={`/${imagePath}`}
-                        alt={`Product image ${index + 1}`}
-                        className="w-full h-24 object-cover rounded-lg border border-slate-200"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeImage(index)}
-                        className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                        disabled={loading || uploadingImages}
-                      >
-                        <span className="material-icons text-sm">close</span>
-                      </button>
-                    </div>
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Description
+                </label>
+                <textarea
+                  value={formData.description || ''}
+                  onChange={(e) => handleInputChange('description', e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={3}
+                  placeholder="Enter product description"
+                  disabled={loading}
+                />
+              </div>
+
+              {/* Price */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Price *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.price}
+                  onChange={(e) => handleNumberInput('price', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    errors.price ? 'border-red-500' : 'border-slate-300'
+                  }`}
+                  placeholder="0.00"
+                  disabled={loading}
+                />
+                {errors.price && <p className="mt-1 text-sm text-red-600">{errors.price}</p>}
+              </div>
+
+              {/* Quantity */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Quantity *
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.quantity}
+                  onChange={(e) => handleNumberInput('quantity', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    errors.quantity ? 'border-red-500' : 'border-slate-300'
+                  }`}
+                  placeholder="0"
+                  disabled={loading}
+                />
+                {errors.quantity && <p className="mt-1 text-sm text-red-600">{errors.quantity}</p>}
+              </div>
+
+              {/* Category */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Category
+                </label>
+                <select
+                  value={formData.category_id || ''}
+                  onChange={(e) => handleInputChange('category_id', e.target.value ? parseInt(e.target.value) : undefined)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={loading}
+                >
+                  <option value="">Select a category</option>
+                  {(categories || []).map(category => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
                   ))}
+                </select>
+              </div>
+
+              {/* Status */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Status
+                </label>
+                <select
+                  value={formData.status}
+                  onChange={(e) => handleInputChange('status', e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={loading}
+                >
+                  <option value="in_stock">In Stock</option>
+                  <option value="low_stock">Low Stock</option>
+                  <option value="out_of_stock">Out of Stock</option>
+                </select>
+              </div>
+
+              {/* Active Status */}
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="is_active"
+                  checked={formData.is_active}
+                  onChange={(e) => handleInputChange('is_active', e.target.checked)}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
+                  disabled={loading}
+                />
+                <label htmlFor="is_active" className="ml-2 text-sm text-slate-700">
+                  Active (visible to customers)
+                </label>
+              </div>
+            </>
+          )}
+
+          {/* Sale Configuration - Show only in sale mode */}
+          {modalMode === 'sale' && (
+            <div>
+              {/* Sale Percentage */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Sale Percentage (0-100%)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={formData.sale_percentage || ''}
+                  onChange={(e) => handleNumberInput('sale_percentage', e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="0.00"
+                  disabled={loading}
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Leave empty or 0 for no sale. Sale price = original price × (1 - percentage/100)
+                </p>
+              </div>
+
+              {/* Sale Start Date */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Sale Start Date
+                </label>
+                <input
+                  type="datetime-local"
+                  value={formData.sale_start_date || ''}
+                  onChange={(e) => handleInputChange('sale_start_date', e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={loading}
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  When the sale should automatically start
+                </p>
+              </div>
+
+              {/* Sale End Date */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Sale End Date (Optional)
+                </label>
+                <input
+                  type="datetime-local"
+                  value={formData.sale_end_date || ''}
+                  onChange={(e) => handleInputChange('sale_end_date', e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={loading}
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Leave empty for indefinite sale. Sale automatically ends at this date/time.
+                </p>
+              </div>
+
+              {/* Remove Sale Button */}
+              {(formData.sale_percentage && formData.sale_percentage > 0) && (
+                <div className="mb-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormData(prev => ({
+                        ...prev,
+                        sale_percentage: 0,
+                        sale_start_date: undefined,
+                        sale_end_date: undefined
+                      }));
+                    }}
+                    className="px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg transition-colors"
+                    disabled={loading}
+                  >
+                    Remove Sale
+                  </button>
                 </div>
               )}
-
-              {uploadedImages.length === 0 && (
-                <p className="text-xs text-slate-500 text-center">No images uploaded yet</p>
-              )}
             </div>
-          </div>
+          )}
+
+          {/* Image Upload - Only show in add/edit modes */}
+          {modalMode !== 'sale' && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Product Images
+              </label>
+              <div className="space-y-4">
+                {/* Upload Area */}
+                <div
+                  className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                    uploadingImages
+                      ? 'border-blue-300 bg-blue-50'
+                      : 'border-slate-300 hover:border-blue-400 hover:bg-slate-50'
+                  }`}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const files = e.dataTransfer.files;
+                    if (files.length > 0) {
+                      handleImageUpload(files);
+                    }
+                  }}
+                >
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    id="image-upload"
+                    disabled={loading || uploadingImages}
+                  />
+                  <label htmlFor="image-upload" className="cursor-pointer">
+                    {uploadingImages ? (
+                      <div className="flex flex-col items-center">
+                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-2"></div>
+                        <p className="text-sm text-slate-600">Uploading images...</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center">
+                        <span className="material-icons text-4xl text-slate-400 mb-2">cloud_upload</span>
+                        <p className="text-sm text-slate-600 mb-1">
+                          <span className="font-medium text-blue-600">Click to upload</span> or drag and drop
+                        </p>
+                        <p className="text-xs text-slate-500">PNG, JPG, GIF, WebP up to 5MB each</p>
+                      </div>
+                    )}
+                  </label>
+                </div>
+
+                {/* Image Preview */}
+                {uploadedImages.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                    {uploadedImages.map((imagePath, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={`/${imagePath}`}
+                          alt={`Product image ${index + 1}`}
+                          className="w-full h-24 object-cover rounded-lg border border-slate-200"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(index)}
+                          className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          disabled={loading || uploadingImages}
+                        >
+                          <span className="material-icons text-sm">close</span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {uploadedImages.length === 0 && (
+                  <p className="text-xs text-slate-500 text-center">No images uploaded yet</p>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Buttons */}
           <div className="flex justify-end space-x-4 pt-4">
@@ -530,7 +571,9 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSu
               {loading && (
                 <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
               )}
-              {isEdit ? 'Update Product' : 'Add Product'}
+              {modalMode === 'sale' ? 'Update Sale' :
+               modalMode === 'edit' ? 'Update Product' :
+               'Add Product'}
             </button>
           </div>
         </form>

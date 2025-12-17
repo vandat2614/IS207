@@ -15,6 +15,10 @@ interface Product {
   category_id?: number;
   status?: string;
   is_active?: boolean;
+  sale_percentage?: number;
+  sale_start_date?: string;
+  sale_end_date?: string;
+  is_on_sale?: boolean;
 }
 
 interface ProductResponse {
@@ -38,6 +42,7 @@ const AdminProductManagement: React.FC = () => {
   const [addLoading, setAddLoading] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editLoading, setEditLoading] = useState(false);
+  const [modalMode, setModalMode] = useState<'add' | 'edit' | 'sale'>('add');
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState<ProductResponse['pagination'] | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -142,6 +147,18 @@ const AdminProductManagement: React.FC = () => {
     const product = products.find(p => p.id === productId);
     if (product) {
       setEditingProduct(product);
+      setModalMode('edit');
+      setShowAddModal(true);
+    } else {
+      setError('Product not found');
+    }
+  };
+
+  const handleManageSale = (productId: number) => {
+    const product = products.find(p => p.id === productId);
+    if (product) {
+      setEditingProduct(product);
+      setModalMode('sale');
       setShowAddModal(true);
     } else {
       setError('Product not found');
@@ -179,18 +196,31 @@ const AdminProductManagement: React.FC = () => {
     setShowAddModal(true);
   };
 
-  const handleAddProductSubmit = async (productData: any) => {
+  const handleAddProductSubmit = async (productData: any, files?: File[]) => {
     console.log('Submitting product data:', productData); // Debug log
     try {
       setAddLoading(true);
       const token = localStorage.getItem('authToken');
+
+      // Check if product has images that are blob URLs (from file uploads)
+      const hasBlobImages = productData.images && productData.images.length > 0 &&
+                           productData.images.some((img: string) => img.startsWith('blob:'));
+
+      let finalProductData = productData;
+
+      if (hasBlobImages) {
+        // For products with images, create product first without images
+        const productDataWithoutImages = { ...productData };
+        delete productDataWithoutImages.images;
+        finalProductData = productDataWithoutImages;
+      }
 
       const response = await fetch('http://localhost:8000/admin/products', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(productData)
+        body: JSON.stringify(finalProductData)
       });
 
       console.log('Response status:', response.status); // Debug log
@@ -198,6 +228,34 @@ const AdminProductManagement: React.FC = () => {
       if (response.ok) {
         const data = await response.json();
         console.log('Success response:', data); // Debug log
+
+        // If product had images, upload them now using the files parameter
+        if (files && files.length > 0 && data.data?.product?.id) {
+          const productId = data.data.product.id;
+
+          for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const formDataUpload = new FormData();
+            formDataUpload.append('image', file);
+
+            try {
+              const uploadResponse = await fetch(`http://localhost:8000/products/${productId}/images/upload`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${token}`
+                },
+                body: formDataUpload
+              });
+
+              if (!uploadResponse.ok) {
+                console.error('Failed to upload image:', uploadResponse.status);
+              }
+            } catch (uploadError) {
+              console.error('Image upload error:', uploadError);
+            }
+          }
+        }
+
         setError('');
         alert('Product added successfully');
         setShowAddModal(false);
@@ -355,6 +413,8 @@ const AdminProductManagement: React.FC = () => {
                     <th className="px-6 py-3" scope="col">Product Name</th>
                     <th className="px-6 py-3" scope="col">Category</th>
                     <th className="px-6 py-3" scope="col">Price</th>
+                    <th className="px-6 py-3" scope="col">Sale %</th>
+                    <th className="px-6 py-3" scope="col">Sale Status</th>
                     <th className="px-6 py-3" scope="col">Quantity</th>
                     <th className="px-6 py-3" scope="col">Status</th>
                     <th className="px-6 py-3" scope="col">Actions</th>
@@ -384,7 +444,7 @@ const AdminProductManagement: React.FC = () => {
                               }}
                             />
                           ) : null}
-                          <span className="material-icons text-slate-500 text-base">image</span>
+                          {/* <span className="material-icons text-slate-500 text-base">image</span> */}
                         </div>
                         <div>
                           <div className="text-sm font-medium text-slate-900">{product.name}</div>
@@ -393,6 +453,22 @@ const AdminProductManagement: React.FC = () => {
                       </th>
                       <td className="px-6 py-4">{product.category_name || 'N/A'}</td>
                       <td className="px-6 py-4">${Number(product.price || 0).toFixed(2)}</td>
+                      <td className="px-6 py-4">{product.sale_percentage ? `${product.sale_percentage}%` : '-'}</td>
+                      <td className="px-6 py-4">
+                        {product.is_on_sale ? (
+                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                            Active
+                          </span>
+                        ) : product.sale_percentage && product.sale_percentage > 0 ? (
+                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
+                            Scheduled
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
+                            No Sale
+                          </span>
+                        )}
+                      </td>
                       <td className="px-6 py-4">{product.quantity || 0}</td>
                       <td className="px-6 py-4">
                         <span className={getStatusClass(product.quantity || 0)}>
@@ -400,20 +476,29 @@ const AdminProductManagement: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <button
-                          onClick={() => handleEdit(product.id)}
-                          className="text-blue-500 hover:text-blue-900 mr-2"
-                          title="Edit"
-                        >
-                          <span className="material-icons text-base">edit</span>
-                        </button>
-                        <button
-                          onClick={() => setShowDeleteConfirm(product.id)}
-                          className="text-red-500 hover:text-red-900"
-                          title="Delete"
-                        >
-                          <span className="material-icons text-base">delete</span>
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleEdit(product.id)}
+                            className="text-blue-500 hover:text-blue-900 p-1 rounded"
+                            title="Edit Product"
+                          >
+                            <span className="material-icons text-base">edit</span>
+                          </button>
+                          <button
+                            onClick={() => handleManageSale(product.id)}
+                            className="text-green-500 hover:text-green-900 p-1 rounded"
+                            title="Manage Sale"
+                          >
+                            <span className="material-icons text-base">local_offer</span>
+                          </button>
+                          <button
+                            onClick={() => setShowDeleteConfirm(product.id)}
+                            className="text-red-500 hover:text-red-900 p-1 rounded"
+                            title="Delete"
+                          >
+                            <span className="material-icons text-base">delete</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -504,6 +589,7 @@ const AdminProductManagement: React.FC = () => {
           onClose={() => {
             setShowAddModal(false);
             setEditingProduct(null);
+            setModalMode('add');
             // Refresh the products list after modal closes (in case new product was added with images)
             fetchProducts(currentPage, searchTerm);
           }}
@@ -518,9 +604,13 @@ const AdminProductManagement: React.FC = () => {
             sku: editingProduct.sku || '',
             category_id: editingProduct.category_id,
             status: editingProduct.status,
-            is_active: editingProduct.is_active
+            is_active: editingProduct.is_active,
+            sale_percentage: editingProduct.sale_percentage,
+            sale_start_date: editingProduct.sale_start_date,
+            sale_end_date: editingProduct.sale_end_date
           } : null}
           isEdit={!!editingProduct}
+          modalMode={modalMode}
         />
       </div>
     </AdminLayout>
