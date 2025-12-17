@@ -27,6 +27,12 @@ const ProductsPage: React.FC = () => {
   const [sortBy, setSortBy] = useState<string>('newest');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const [itemsPerPage] = useState(20); // Fixed items per page
+
   // Fetch initial data
   useEffect(() => {
     const fetchData = async () => {
@@ -78,120 +84,17 @@ const ProductsPage: React.FC = () => {
     fetchData();
   }, []);
 
-  // Load initial products or filtered products based on URL
+  // Load initial products
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const categoryParam = urlParams.get('category');
 
     if (categoryParam && categoryParam !== 'all') {
-      // If category param exists, fetch filtered products directly
-      const fetchFilteredProducts = async () => {
-        try {
-          setLoading(true);
-          const response = await fetch(`http://localhost:8000/products?category=${categoryParam}`, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          });
-
-          if (response.ok) {
-            const productsData = await response.json();
-            const processedProducts = productsData.data.products.map((product: any) => {
-              let images = [];
-              if (product.images) {
-                try {
-                  images = typeof product.images === 'string' ? JSON.parse(product.images) : product.images;
-                } catch (e) {
-                  console.warn('Failed to parse product images:', product.images);
-                }
-              }
-
-                      return {
-                        id: product.id,
-                        category: product.category_name,
-                        category_slug: product.category_slug,
-                        brand: product.brand,
-                        image: images?.[0] || 'https://images.unsplash.com/photo-1571910258025-e3a1b0d6a30c?w=400&h=300&fit=crop',
-                        title: product.name,
-                        description: product.description || `Premium ${product.name} for your style`,
-                        price: parseFloat(product.price),
-                        quantity: parseInt(product.quantity) || 0,
-                        rating: parseFloat(product.rating) || 0,
-                        sale_percentage: parseFloat(product.sale_percentage) || 0,
-                        is_on_sale: product.is_on_sale || false,
-                      };
-            });
-            setProducts(processedProducts);
-          } else {
-            // Fallback to mock products if API fails
-            generateMockProducts();
-            setSelectedCategory(categoryParam);
-          }
-        } catch (err) {
-          console.error('Error fetching filtered products:', err);
-          generateMockProducts();
-          setSelectedCategory(categoryParam);
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchFilteredProducts();
-    } else {
-      // Normal load - all products from database
-      const fetchAllProducts = async () => {
-        try {
-          setLoading(true);
-          const response = await fetch('http://localhost:8000/products', {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          });
-
-          if (response.ok) {
-            const productsData = await response.json();
-            const processedProducts = productsData.data.products.map((product: any) => {
-              let images = [];
-              if (product.images) {
-                try {
-                  images = typeof product.images === 'string' ? JSON.parse(product.images) : product.images;
-                } catch (e) {
-                  console.warn('Failed to parse product images:', product.images);
-                }
-              }
-
-                      return {
-                        id: product.id,
-                        category: product.category_name,
-                        category_slug: product.category_slug,
-                        brand: product.brand,
-                        image: images?.[0] || 'https://images.unsplash.com/photo-1571910258025-e3a1b0d6a30c?w=400&h=300&fit=crop',
-                        title: product.name,
-                        description: product.description || `Premium ${product.name} for your style`,
-                        price: parseFloat(product.price),
-                        quantity: parseInt(product.quantity) || 0,
-                        rating: parseFloat(product.rating) || 0,
-                        sale_percentage: parseFloat(product.sale_percentage) || 0,
-                        is_on_sale: product.is_on_sale || false,
-                      };
-            });
-            setProducts(processedProducts);
-          } else {
-            // Fallback to mock products if API fails
-            console.warn('Database products fetch failed, using mock data');
-            generateMockProducts();
-          }
-        } catch (err) {
-          console.error('Error fetching products from database:', err);
-          // Fallback to mock products if API fails
-          generateMockProducts();
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchAllProducts();
+      setSelectedCategory(categoryParam);
     }
+
+    // Always start with page 1
+    fetchProductsWithFilters(1);
   }, []);
 
   // Apply filters when filter states change
@@ -277,13 +180,17 @@ const ProductsPage: React.FC = () => {
     setFilteredProducts(filtered);
   };
 
-  const fetchProductsWithFilters = async () => {
+  const fetchProductsWithFilters = async (page: number = 1) => {
     try {
       setLoading(true);
       setError(null);
 
       // Build query parameters for API filtering
       const params = new URLSearchParams();
+
+      // Add pagination parameters
+      params.append('page', page.toString());
+      params.append('limit', itemsPerPage.toString());
 
       if (selectedCategory !== 'all') params.append('category', selectedCategory);
       if (selectedPriceRange !== 'all') params.append('price_range', selectedPriceRange);
@@ -326,7 +233,14 @@ const ProductsPage: React.FC = () => {
             is_on_sale: product.is_on_sale || false,
           };
         });
+
+        // Update pagination state
+        setCurrentPage(productsData.data.pagination.page);
+        setTotalPages(productsData.data.pagination.total_pages);
+        setTotalProducts(productsData.data.pagination.total);
+
         setProducts(processedProducts);
+        setFilteredProducts(processedProducts); // For pagination, filtered products = all products on current page
       } else {
         throw new Error('Failed to fetch products');
       }
@@ -432,6 +346,11 @@ const ProductsPage: React.FC = () => {
     // TODO: Implement cart functionality
   };
 
+  const handlePageChange = (page: number) => {
+    if (page < 1 || page > totalPages || loading) return;
+    fetchProductsWithFilters(page);
+  };
+
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
@@ -474,57 +393,8 @@ const ProductsPage: React.FC = () => {
               setSelectedBrand('all');
               setSortBy('newest');
               setSearchQuery('');
-              // Re-fetch all products from database
-              const fetchAllProducts = async () => {
-                try {
-                  setLoading(true);
-                  const response = await fetch('http://localhost:8000/products', {
-                    method: 'GET',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                  });
-
-                  if (response.ok) {
-                    const productsData = await response.json();
-                    const processedProducts = productsData.data.products.map((product: any) => {
-                      let images = [];
-                      if (product.images) {
-                        try {
-                          images = typeof product.images === 'string' ? JSON.parse(product.images) : product.images;
-                        } catch (e) {
-                          console.warn('Failed to parse product images:', product.images);
-                        }
-                      }
-
-          return {
-            id: product.id,
-            category: product.category_name,
-            category_slug: product.category_slug,
-            brand: product.brand,
-            image: images?.[0] || 'https://images.unsplash.com/photo-1571910258025-e3a1b0d6a30c?w=400&h=300&fit=crop',
-            title: product.name,
-            description: product.description || `Premium ${product.name} for your style`,
-            price: parseFloat(product.price),
-            quantity: parseInt(product.quantity) || 0,
-            rating: parseFloat(product.rating) || 0,
-            sale_percentage: parseFloat(product.sale_percentage) || 0,
-            is_on_sale: product.is_on_sale || false,
-          };
-                    });
-                    setProducts(processedProducts);
-                  } else {
-                    console.warn('Database products fetch failed, using mock data');
-                    generateMockProducts();
-                  }
-                } catch (err) {
-                  console.error('Error fetching products from database:', err);
-                  generateMockProducts();
-                } finally {
-                  setLoading(false);
-                }
-              };
-              fetchAllProducts();
+              // Fetch all products with pagination reset to page 1
+              fetchProductsWithFilters(1);
             }}
             className="px-3 py-2 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors"
           >
@@ -653,28 +523,80 @@ const ProductsPage: React.FC = () => {
           </button>
         </div>
       ) : (
-        /* Products Grid */
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredProducts.map((product) => (
-            <div key={product.id} className="relative">
-              <ProductCard
-                id={product.id}
-                image={product.image}
-                title={product.title}
-                description={product.description}
-                price={product.price}
-                sale_percentage={product.sale_percentage}
-                is_on_sale={product.is_on_sale}
-                onAddToCart={handleAddToCart}
-              />
-              {/* Rating display - consistent for all access methods */}
-              <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm rounded px-2 py-1 text-sm flex items-center">
-                <span className="material-icons text-yellow-500 text-sm">star</span>
-                {(product.rating && product.rating > 0) ? product.rating.toFixed(1) : '4.5'}
+        <>
+          {/* Products Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filteredProducts.map((product) => (
+              <div key={product.id} className="relative">
+                <ProductCard
+                  id={product.id}
+                  image={product.image}
+                  title={product.title}
+                  description={product.description}
+                  price={product.price}
+                  sale_percentage={product.sale_percentage}
+                  is_on_sale={product.is_on_sale}
+                  onAddToCart={handleAddToCart}
+                />
+                {/* Rating display - consistent for all access methods */}
+                <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm rounded px-2 py-1 text-sm flex items-center">
+                  <span className="material-icons text-yellow-500 text-sm">star</span>
+                  {(product.rating && product.rating > 0) ? product.rating.toFixed(1) : '4.5'}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="mt-12 flex items-center justify-between">
+              <div className="text-sm text-slate-600">
+                Showing page {currentPage} of {totalPages} ({totalProducts} total products)
+              </div>
+
+              <div className="flex items-center space-x-2">
+                {/* Previous Button */}
+                <button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage <= 1 || loading}
+                  className="px-3 py-2 text-sm font-medium text-slate-500 bg-white border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+
+                {/* Page Numbers */}
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  const pageNum = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i;
+                  if (pageNum > totalPages) return null;
+
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => handlePageChange(pageNum)}
+                      disabled={loading}
+                      className={`px-3 py-2 text-sm font-medium rounded-md ${
+                        pageNum === currentPage
+                          ? 'text-white bg-blue-600 border border-blue-600'
+                          : 'text-slate-500 bg-white border border-slate-300 hover:bg-slate-50'
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+
+                {/* Next Button */}
+                <button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage >= totalPages || loading}
+                  className="px-3 py-2 text-sm font-medium text-slate-500 bg-white border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
               </div>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
     </div>
   );

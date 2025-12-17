@@ -89,6 +89,14 @@ CREATE TABLE `products` (
   `brand` VARCHAR(100) COMMENT 'Product brand/manufacturer',
   `tags` JSON COMMENT 'Search tags and keywords for filtering',
   `rating` DECIMAL(3,2) DEFAULT 0.00 COMMENT 'Average product rating (0-5)',
+  `sale_percentage` DECIMAL(5,2) DEFAULT 0.00 COMMENT 'Sale discount percentage (0-100)',
+  `sale_start_date` DATETIME NULL COMMENT 'When sale starts (automatic activation)',
+  `sale_end_date` DATETIME NULL COMMENT 'When sale ends (automatic deactivation)',
+  `is_on_sale` BOOLEAN GENERATED ALWAYS AS (
+    sale_percentage > 0
+    AND sale_start_date <= NOW()
+    AND (sale_end_date IS NULL OR sale_end_date >= NOW())
+  ) STORED COMMENT 'Computed field: is product currently on sale',
   `is_active` BOOLEAN DEFAULT TRUE,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
